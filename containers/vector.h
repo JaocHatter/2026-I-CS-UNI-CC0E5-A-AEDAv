@@ -74,6 +74,9 @@ ostream& operator<<(ostream& os, Vector<T>& v){
 // TODO: Implementar como PR
 template <typename T>
 istream& operator>>(istream& is, Vector<T>& v){
+    T tmp;
+    is >> tmp;
+    v.push_back(tmp);
     return is;
 }
 
