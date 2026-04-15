@@ -18,6 +18,7 @@ public:
     using Parent = general_iterator<Container, MySelf>;
     using Parent::Parent;
     MySelf operator++() { this->m_pNode++; return *this; }
+    MySelf operator++(int) { MySelf tmp = *this; ++this->m_pNode; return tmp; }
 };
 
 template <typename Container>
