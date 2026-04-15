@@ -74,9 +74,16 @@ ostream& operator<<(ostream& os, Vector<T>& v){
 // TODO: Implementar como PR
 template <typename T>
 istream& operator>>(istream& is, Vector<T>& v){
-    T tmp;
-    is >> tmp;
-    v.push_back(tmp);
+    string line;
+    // tomamos la line completa
+    if(getline(is, line)){
+        // creamos nuestra stream de entrada netamente para strings
+        istringstream iss(line);
+        T tmp;
+        while (iss >> tmp){
+            v.push_back(tmp);
+        }
+    }
     return is;
 }
 

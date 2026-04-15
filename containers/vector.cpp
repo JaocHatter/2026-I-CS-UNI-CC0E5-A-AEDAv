@@ -29,22 +29,15 @@ void DemoVector(){
     cout << v2.toString() << endl;
 
     //Showing the new vectors
-    ifstream isfile("new_temp.txt");
+    Vector<int> v3(6);
     
-    if(isfile.is_open()){
-        cout << "File opened successfully" << endl;
-        isfile >> v1;
-        isfile >> v2;
-        isfile.close();
-    }else{
-        cerr << "Could not open the file!" << endl;
-    }
-
-    cout << v1 << endl;
-    cout << v2 << endl;
-
+    cout << "Ingresar 6 numeros: ";
+    cin >> v3;
+    cout << v3 << endl;
+    /*
     ofstream of("temp.txt");
     of << v1 << endl;
     of << v2 << endl;
-    of.close(); 
+    of.close();
+    */ 
 }
