@@ -27,6 +27,8 @@ public:
     using Parent = general_iterator<Container, MySelf>;
     using Parent::Parent;
     MySelf operator++() { this->m_pNode--; return *this; }
+    // post incremento, una operacion más ...
+    MySelf operator++(int) { MySelf tmp = *this; --this->m_pNode; return tmp; }
 };
 
 template <typename T>
@@ -93,12 +95,14 @@ public:
     // TODO: Agregar control concurrente
     template <typename Func, typename... Args>
     void ForEach(Func func, Args &&...  args){
+        scoped_lock lock(m_mtx);
         ::ForEach(begin(), end(), func, std::forward<Args>(args)... );
     }
 
     // TODO: Agregar control concurrente
     template <typename Func, typename... Args>
     void ReverseForEach(Func func, Args &&...  args){
+        scoped_lock lock(m_mtx);
         ::ForEach(rbegin(), rend(), func, std::forward<Args>(args)... );
     }
 };
