@@ -143,7 +143,24 @@ public:
         return *this;
     }
     
-    virtual        ~LinkedList() {}
+    virtual        ~LinkedList() {
+        // Se usa unique_lock porque la destrucción es una operación de escritura/modificación. solo un hilo accede
+        unique_lock<shared_mutex> lock(m_mtx); 
+        
+        // Puntero auxiliar para recorrer la lista comenzando desde la raíz.
+        Node *pCurr = m_pRoot;
+        
+        // Bucle de liberación de memoria.
+        while(pCurr) {
+            // Guardamos la referencia al siguiente nodo antes de eliminar el actual.
+            Node *pNext = pCurr->getNext();
+            delete pCurr;
+            pCurr = pNext;
+        }
+         
+        m_pRoot = m_tail = nullptr;
+        m_size = 0;
+    }
     virtual void    push_front(value_type value, Ref ref);
     virtual void    pop_front();
     virtual void    push_back(value_type value, Ref ref);
