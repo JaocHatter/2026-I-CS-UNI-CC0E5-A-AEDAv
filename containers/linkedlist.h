@@ -170,7 +170,21 @@ private:
 public:
     virtual void    insert(const value_type &value, Ref ref);
     
-    virtual value_type& operator[](size_t index);
+    virtual value_type& operator[](size_t index) {
+        shared_lock<shared_mutex> lock(m_mtx); 
+
+        if (pos >= m_size) {
+            throw out_of_range("Índice fuera de los límites de la lista");
+        }
+        
+        // Recorrido secuencial desde la raíz hasta la posición solicitada
+        Node* nodePtr = m_pRoot;
+        for (size_t step = 0; step < pos; ++step) {
+            nodePtr = nodePtr->getNext();
+        }
+        
+        return nodePtr->getDataRef();
+    };
     virtual size_t  size() const;
     virtual string  toString() const;
 
@@ -268,5 +282,6 @@ void LinkedList<T>::pop_back() {
     m_tail->setNext(nullptr);
     m_size--;
 }
+
 
 #endif // __LINKEDLIST_H__
