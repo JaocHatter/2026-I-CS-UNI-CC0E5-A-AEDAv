@@ -283,5 +283,25 @@ void LinkedList<T>::pop_back() {
     m_size--;
 }
 
+template <typename Trait>
+istream& operator>>(istream& inputSource, LinkedList<Trait>& targetList) {
+    char token;
+    
+    while (inputSource >> token) {
+        if (token == ']') break;    
+        if (token == ',') continue;
+        
+        inputSource.putback(token);
+        
+        typename Trait::value_type element; 
+        if (inputSource >> element) {
+            targetList.insert(element, Ref()); 
+        } else {
+            inputSource.setstate(ios::failbit);
+            break;
+        }
+    }
+    return inputSource;
+}
 
 #endif // __LINKEDLIST_H__
