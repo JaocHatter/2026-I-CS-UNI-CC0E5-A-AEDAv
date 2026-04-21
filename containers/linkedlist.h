@@ -115,6 +115,32 @@ public:
     LinkedList& operator=(const LinkedList &other){ // Copy assignment operator
     }
     LinkedList& operator=(LinkedList &&other){ // Move assignment operator
+        if (this == &other) return *this;
+
+        // Bloqueo atómico de ambos mutexes para evitar condiciones de carrera y deadlocks
+        scoped_lock lock(m_mtx, other.m_mtx);
+
+        // Liberar los recursos que este objeto posee actualmente
+        Node* current = m_pRoot;
+        while (current) {
+            Node* next = current->getNext();
+            delete current;
+            current = next;
+        }
+
+        // transferencia de propied
+        m_pRoot = other.m_pRoot;
+        m_tail  = other.m_tail; 
+        m_size  = other.m_size; 
+        m_comp  = std::move(other.m_comp);
+
+        // Resetear el objeto origen 
+        // Es vital dejar 'other' en un estado vacío para que su destructor no borre la memoria
+        other.m_pRoot = nullptr;
+        other.m_tail  = nullptr;
+        other.m_size  = 0;      
+
+        return *this;
     }
     
     virtual        ~LinkedList() {}
