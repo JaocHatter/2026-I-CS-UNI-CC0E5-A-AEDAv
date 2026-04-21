@@ -18,6 +18,11 @@ class LinkedListForwardIterator : public general_iterator<Container, LinkedListF
     using Parent = general_iterator<Container, MySelf>;
     using Parent::Parent;
     // TODO: Completar el operator++
+    public:
+        MySelf& operator++(){
+            this->m_pNode = this->m_pNode->getNext();
+            return *this;
+        };
 };
 
 // Linked List Node
