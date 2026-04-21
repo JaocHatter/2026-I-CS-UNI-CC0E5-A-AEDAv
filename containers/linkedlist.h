@@ -213,4 +213,18 @@ void LinkedList<T>::push_front(value_type value, Ref ref){
     m_size++;
 }
 
+template <typename T>
+void LinkedList<T>::pop_front(){
+    unique_lock<shared_mutex> lock(m_mtx);
+    // verifiquemos que haya algo que eliminar
+    if (!m_pRoot) return;
+        
+    Node* pTemp = m_pRoot;
+    m_pRoot = m_pRoot->getNext();
+    delete pTemp;
+        
+    m_size--;
+    if (m_size == 0) m_tail = nullptr;
+}
+
 #endif // __LINKEDLIST_H__
