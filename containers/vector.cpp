@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <mutex>
 #include <thread>
 #include "vector.h"
 using namespace std;
