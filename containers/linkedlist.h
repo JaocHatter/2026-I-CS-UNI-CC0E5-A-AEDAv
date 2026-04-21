@@ -241,4 +241,32 @@ void LinkedList<T>::push_back(value_type value, Ref ref) {
     m_size++;
 }
 
+template <typename T> 
+void LinkedList<T>::pop_back() {
+    unique_lock<shared_mutex> lock(m_mtx);
+
+    if (!m_pRoot)
+        return;
+
+    // Manejo del caso especial donde solo existe un elemento.
+    if (m_pRoot == m_tail) {
+        delete m_pRoot;     
+        m_pRoot = nullptr;
+        m_tail = nullptr;
+        m_size--;
+        return;
+    }
+
+    Node *pretail = m_pRoot;
+    while (pretail->getNextRef() != m_tail) {
+        pretail = pretail->getNextRef();
+    }
+
+    // Eliminación del nodo final y actualización de la estructura.
+    delete m_tail;        
+    m_tail = pretail;
+    m_tail->setNext(nullptr);
+    m_size--;
+}
+
 #endif // __LINKEDLIST_H__
