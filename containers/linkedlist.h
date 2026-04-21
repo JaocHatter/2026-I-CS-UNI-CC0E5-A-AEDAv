@@ -97,6 +97,20 @@ public:
         }
     }
     LinkedList(LinkedList &&other){ // Move constructor
+        // Bloqueamos el objeto de origen para asegurar que nadie lo modifique mientras ejecutamos el constructor move
+        unique_lock<shared_mutex> lock(other.m_mtx);
+
+        // Transferimos la propiedad de los recursos
+        m_pRoot = other.m_pRoot;
+        m_tail  = other.m_tail; 
+        m_size  = other.m_size; 
+        m_comp  = move(other.m_comp);
+
+        // Dejamos al objeto original en un estado válido pero vacío
+        // esto es vital para que su destructor no borre la memoria que acabamos de tomar
+        other.m_pRoot = nullptr;
+        other.m_tail  = nullptr;
+        other.m_size  = 0;
     }
     LinkedList& operator=(const LinkedList &other){ // Copy assignment operator
     }
