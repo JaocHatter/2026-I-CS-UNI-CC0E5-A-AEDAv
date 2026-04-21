@@ -227,4 +227,18 @@ void LinkedList<T>::pop_front(){
     if (m_size == 0) m_tail = nullptr;
 }
 
+template <typename T> 
+void LinkedList<T>::push_back(value_type value, Ref ref) {
+    unique_lock<shared_mutex> lock(m_mtx);
+    Node *tail = new Node(value, ref, nullptr);
+    if (m_pRoot == nullptr) {
+        m_pRoot = tail;
+        m_tail = tail;
+    } else {
+        m_tail->setNext(tail);
+        m_tail = tail;
+    }
+    m_size++;
+}
+
 #endif // __LINKEDLIST_H__
