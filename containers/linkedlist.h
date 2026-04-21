@@ -80,6 +80,21 @@ private:
 public:
     LinkedList() {}
     LinkedList(const LinkedList &other){ // Copy constructor
+        Node* pt_node = other.m_pRoot;
+        // Copiamos cada uno de los nodos desde la raiz
+        while(pt_node) {
+            Node* tmp_node = new Node(pt_node->getData(), nullptr);
+            if(!m_pRoot){
+                //llegamos al final
+                m_pRoot = m_tail = tmp_node;
+            } else {
+                m_tail->setNext(tmp_node);
+                m_tail = tmp_node;
+            }
+            m_size++;
+            //continuamos
+            pt_node = pt_node->getNext();
+        }
     }
     LinkedList(LinkedList &&other){ // Move constructor
     }
