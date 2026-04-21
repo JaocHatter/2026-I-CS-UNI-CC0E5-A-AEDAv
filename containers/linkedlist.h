@@ -202,6 +202,15 @@ void LinkedList<T>::insert(const value_type &value, Ref ref){
     internal_insert(m_pRoot, value, ref);
 }
 
-
+template <typename T>
+void LinkedList<T>::push_front(value_type value, Ref ref){
+    // Aseguramos que solo 1 hilo pueda acceder a los recursos cuando la funcion es llamada
+    unique_lock<shared_mutex> lock(m_mtx);
+    m_pRoot = new Node(value, m_pRoot);
+    if (m_size == 0) {
+        m_tail = m_pRoot;
+    } 
+    m_size++;
+}
 
 #endif // __LINKEDLIST_H__
