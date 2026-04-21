@@ -304,4 +304,29 @@ istream& operator>>(istream& inputSource, LinkedList<Trait>& targetList) {
     return inputSource;
 }
 
+template <typename Trait>
+string LinkedList<Trait>::toString() const {
+    // Permite que multiples hilos accedan al recurso, pues es solo de lectura
+    shared_lock<shared_mutex> lock(m_mtx);
+    // ostream de tipo string
+    ostringstream oss;
+    // aseguramos el formato
+    oss << "[";
+    Node* pCurr = m_pRoot;
+    while (pCurr) {
+        if (pCurr != m_pRoot)
+            oss << ",";
+        oss << pCurr->getData();
+        pCurr = pCurr->getNext();
+    }
+    oss << "]";
+    return oss.str();
+}
+
+template <typename Trait>
+ostream& operator<<(ostream& os, const LinkedList<Trait>& list) {
+    return os << list.toString();
+}
+
+
 #endif // __LINKEDLIST_H__
