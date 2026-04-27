@@ -285,3 +285,44 @@ size_t CircleLinkedList<Trait>::size() const {
     shared_lock<shared_mutex> lock(m_mtx);
     return m_size;
 }
+
+// insert
+template <typename Trait>
+void CircleLinkedList<Trait>::insert(const value_type &value, Ref ref) {
+    unique_lock<shared_mutex> lock(m_mtx);
+    Node* newNode = new Node(value, ref);
+
+    if (m_pRoot == nullptr) {
+        m_pRoot = newNode;
+        m_tail  = newNode;
+        newNode->setNext(m_pRoot);
+        m_size++;
+        return;
+    }
+
+    if (m_comp(value, m_pRoot->getData())) {
+        newNode->setNext(m_pRoot);
+        m_pRoot = newNode;
+        m_tail->setNext(m_pRoot);
+        m_size++;
+        return;
+    }
+
+    Node* curr = m_pRoot;
+    for (size_t i = 0; i < m_size - 1; ++i) {
+        Node* nextNode = curr->getNext();
+        if (m_comp(value, nextNode->getData())) {
+            newNode->setNext(nextNode);
+            curr->setNext(newNode);
+            m_size++;
+            return;
+        }
+        curr = nextNode;
+    }
+
+    // haciendo la lista circular...
+    newNode->setNext(m_pRoot);
+    m_tail->setNext(newNode);
+    m_tail = newNode;
+    m_size++;
+}
