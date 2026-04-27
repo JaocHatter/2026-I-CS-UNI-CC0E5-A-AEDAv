@@ -1,6 +1,36 @@
-
-
+#pragma once
 #include "linkedlist.h"
+#include "general_iterator.h"
+
+template <typename Container>
+class LinkedListForwardIterator : public general_iterator<Container, LinkedListForwardIterator<Container>>{
+public:
+    using MySelf = LinkedListForwardIterator<Container>;
+    using Parent = general_iterator<Container, MySelf>;
+    using Parent::Parent;
+    
+    MySelf operator++() {
+        if (this->m_pNode) {
+            this->m_pNode = this->m_pNode->getNext();
+        }
+        return *this;
+    }
+};
+
+template <typename Container>
+class LinkedListBackwardIterator : public general_iterator<Container, LinkedListBackwardIterator<Container>>{
+public:
+    using MySelf = LinkedListBackwardIterator<Container>;
+    using Parent = general_iterator<Container, MySelf>;
+    using Parent::Parent;
+    
+    MySelf operator++() {
+        if (this->m_pNode) {
+            this->m_pNode = this->m_pNode->getPrevious();
+        }
+        return *this;
+    }
+};
 
 // TODO Los iteradores ahora son forward y backward
 // Crear 2 nuevos i
