@@ -38,7 +38,7 @@ class LLNode{
 protected:
     using Node = NodeType;
 private:
-    T   m_data;
+    T   m_data; 
     Ref m_ref;
     Node *m_next;
 public:
@@ -84,7 +84,8 @@ public:
     using forward_iterator = LinkedListForwardIterator<MySelf>;
     friend forward_iterator;
 
-private:
+// cambiar de privado a protected para que los miembros puedan ser usados por las clases que lo hereden
+protected:
     Node *m_pRoot = nullptr;
     Node *m_tail = nullptr;
     size_t m_size = 0;
