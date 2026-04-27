@@ -268,3 +268,20 @@ std::tuple<typename CircleLinkedList<Trait>::value_type, Ref> CircleLinkedList<T
     m_size--;
     return result;
 }
+
+template <typename Trait>
+typename CircleLinkedList<Trait>::value_type& CircleLinkedList<Trait>::operator[](size_t index) {
+    shared_lock<shared_mutex> lock(m_mtx);
+    if (index >= m_size) throw out_of_range("Indice fuera de rango");
+    Node* act = m_pRoot;
+    for (size_t i = 0; i < index; ++i) {
+        act = act->getNext();
+    }
+    return act->getDataRef();
+}
+
+template <typename Trait>
+size_t CircleLinkedList<Trait>::size() const {
+    shared_lock<shared_mutex> lock(m_mtx);
+    return m_size;
+}
