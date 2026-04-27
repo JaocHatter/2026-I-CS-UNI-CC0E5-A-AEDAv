@@ -175,4 +175,39 @@ public:
             curr = curr->getNext();
         }
     }
+
+    // Operadores Stream de Salida y Entradad
+    friend ostream& operator<<(ostream& os, const CircleLinkedList& list) {
+        shared_lock<shared_mutex> lock(list.m_mtx);
+        os << "[";
+        Node* act = list.m_pRoot;
+        for (size_t i = 0; i < list.m_size; ++i) {
+            os << "(" << act->getData() << "," << act->getRef() << ")";
+            if (i + 1 < list.m_size) os << ",";
+            act = act->getNext();
+        }
+        os << "]";
+        return os;
+    }
+
+    friend istream& operator>>(istream& is, CircleLinkedList& list) {
+        char ch;
+        if (!(is >> ch) || ch != '[') {
+            is.clear(ios_base::failbit);
+            return is;
+        }
+        value_type val;
+        Ref ref;
+        char comma, parenClose;
+        while (is >> ch && ch != ']') {
+            if (ch == '(') {
+                if (is >> val >> comma >> ref >> parenClose) {
+                    if (comma == ',' && parenClose == ')') {
+                        list.push_back(val, ref);
+                    }
+                }
+            }
+        }
+        return is;
+    }
 };
