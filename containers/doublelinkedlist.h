@@ -86,7 +86,7 @@ public:
     DoubleLinkedList() {}
 
     // TODO: Copy constructor
-    DoubleLinkedList(const DoubleLinkedList &other) : m_pRoot(nullptr), m_tail(nullptr), m_head(nullptr), m_size(0) {
+    DoubleLinkedList(const DoubleLinkedList &other) : m_pRoot(nullptr), m_tail(nullptr), m_size(0) {
         shared_lock<shared_mutex> lock(other.m_mtx);
         for(Node* curr = other.m_pRoot; curr != nullptr; curr = curr->getNext()) {
             push_back(curr->getData(), curr->getRef());
@@ -128,5 +128,52 @@ public:
             this->m_size  = std::exchange(other.m_size, 0);
         }
         return *this;
+    }
+
+private:
+    void internal_insert(Node* &curr, Node* &nPrev, const value_type &value, Ref ref) {
+        if(!curr || m_comp(value, curr->getDataRef())){
+            Node* tmp_node = new Node(value, ref, curr, nPrev);
+
+            if (curr != nullptr) {
+                curr->setPrev(newNode);
+            } else {
+                // Si no hay siguiente, el nuevo nodo es el nuevo tail
+                this->m_tail = newNode;
+            }
+            curr = newNode;
+            this->size++;
+            return;
+        }
+        internal_insert(nPrev->getNextRef(), curr, value, ref);
+    }
+public:
+
+    //un override porque esta 
+    void insert(const value_type &value, Ref ref) override{
+        unique_lock<shared_mutex> lock(this->m_mtx);
+        internal_insert(this->m_pRoot, nullptr, value, ref);
+        // el bucle while de linkedlist era innecesario, puesto que el tail ya se define en internal_insert!
+    }
+
+    forward_iterator begin() { return forward_iterator(this, this->m_pRoot); }
+    forward_iterator end()   { return forward_iterator(this, nullptr); }
+
+    backward_iterator rbegin() { return backward_iterator(this,this->m_tail); }
+    backward_iterator rend()   { return backward_iterator(this, nullptr); }
+
+    
+    // ForEach con control de concurrencia
+    template <typename Func, typename... Args>
+    void ForEach(Func func, Args &&... args) {
+        unique_lock<shared_mutex> lock(this->m_mtx);
+        ::ForEach(begin(), end(), func, forward<Args>(args)...);
+    }
+
+    // Para una DLL debería existir un ForEach backward
+    template <typename Func,typename Args>
+    void ReverseForEach(Func func, Args &&... args){
+        unique_lock<shared_mutex> lock(this->m_mtx);
+        ::ForEach(rbegin(), rend(), func, forward<Args>(args)...);
     }
 };
