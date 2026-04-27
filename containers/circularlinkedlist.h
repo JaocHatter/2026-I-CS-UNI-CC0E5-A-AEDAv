@@ -211,3 +211,37 @@ public:
         return is;
     }
 };
+
+// push_front
+template <typename Trait>
+void CircleLinkedList<Trait>::push_front(value_type value, Ref ref) {
+    unique_lock<shared_mutex> lock(m_mtx);
+    Node* newNode = new Node(value, ref);
+    if (m_size == 0) {
+        m_pRoot = newNode;
+        m_tail  = newNode;
+        m_tail->setNext(m_pRoot);
+    } else {
+        newNode->setNext(m_pRoot);
+        m_pRoot = newNode;
+        m_tail->setNext(m_pRoot); 
+    }
+    m_size++;
+}
+
+// push_back
+template <typename Trait>
+void CircleLinkedList<Trait>::push_back(value_type value, Ref ref) {
+    unique_lock<shared_mutex> lock(m_mtx);
+    Node* newNode = new Node(value, ref);
+    if (m_size == 0) {
+        m_pRoot = newNode;
+        m_tail  = newNode;
+        m_tail->setNext(m_pRoot);
+    } else {
+        m_tail->setNext(newNode);
+        m_tail = newNode;
+        m_tail->setNext(m_pRoot);
+    }
+    m_size++;
+}
