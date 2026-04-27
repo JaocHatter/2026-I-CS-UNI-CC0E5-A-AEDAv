@@ -77,6 +77,9 @@ struct DescendingDLLTrait : BaseTrait<T, greater<T>>{
 template <typename Trait>
 class DoubleLinkedList : public LinkedList<Trait>{
 public:
+    // redefiniendo algunos de los alias
+    using value_type = typename Trait::value_type;
+    using Node       = typename Trait::Node;
     using MySelf = DoubleLinkedList<Trait>;
     using forward_iterator = DoubleLinkedListForwardIterator<MySelf>;
     friend forward_iterator;
@@ -170,6 +173,7 @@ public:
         unique_lock<shared_mutex> lock(this->m_mtx);
         internal_insert(this->m_pRoot, nullptr, value, ref);
         // el bucle while de linkedlist era innecesario, puesto que el tail ya se define en internal_insert!
+        // esta podría ser una de las mejoras...
     }
 
     forward_iterator begin() { return forward_iterator(this, this->m_pRoot); }
@@ -193,5 +197,54 @@ public:
         ::ForEach(rbegin(), rend(), func, forward<Args>(args)...);
     }
 
+    // override de push_back para dll
+    void push_back(value_type value, Ref ref) override{
+        unique_lock<shared_mutex> lock(this->m_mtx);
+        Node *newNode = new Node(value, ref, nullptr, this->m_tail);
+        if (this->m_tail){
+            this->m_tail->setNext(newNode);
+        }else{
+            this->m_pRoot = newNode;
+        }
+        this->m_tail = newNode;
+        this->m_size++;
+    }
+
+    //operadores de stream output e input
+    friend ostream& operator<<(ostream& os, const DoubleLinkedList& list) {
+        shared_lock<shared_mutex>lock(list.m_mtx); 
+        os << "[";
+        Node* curr = list.m_pRoot;
+        while(curr){
+            os << "(" << curr->getData() << "," << act->getRef() << ")";
+            if(curr->getNext()) {
+                os << ",";
+            } 
+            curr = curr->getNext();
+        }
+        os << "]";
+        return os;
+    }
+
+    friend istream& operator>>(istream& is, DoubleLinkedList& list) {
+        char ch;
+        if (!(is >> ch) || ch != '[') {
+            is.clear(ios_base::failbit);
+            return is;
+        }
+        value_type val;
+        Ref ref;
+        char comma, parenClose;
+        while (is >> ch && ch != ']') {
+            if (ch == '(') {
+                if (is >> val >> comma >> ref >> parenClose) {
+                    if (comma == ',' && parenClose == ')') {
+                        list.push_back(val, ref);
+                    }
+                }
+            }
+        }
+        return is;
+    }
 
 };
