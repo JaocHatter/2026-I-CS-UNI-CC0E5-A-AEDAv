@@ -245,3 +245,26 @@ void CircleLinkedList<Trait>::push_back(value_type value, Ref ref) {
     }
     m_size++;
 }
+
+// pop_front
+// Este pop retorna la data y dirección del nodo eliminado
+template <typename Trait>
+std::tuple<typename CircleLinkedList<Trait>::value_type, Ref> CircleLinkedList<Trait>::pop_front() {
+    unique_lock<shared_mutex> lock(m_mtx);
+    if (!m_pRoot) throw runtime_error("lista vacia");
+
+    Node* temp   = m_pRoot;
+    auto  result = std::make_tuple(temp->getData(), temp->getRef());
+
+    if (m_size == 1) {
+        m_pRoot = nullptr;
+        m_tail  = nullptr;
+    } else {
+        m_pRoot = temp->getNext();
+        m_tail->setNext(m_pRoot); // reconecta el anillo con la nueva raiz
+    }
+
+    delete temp;
+    m_size--;
+    return result;
+}
