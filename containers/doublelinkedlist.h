@@ -130,6 +130,22 @@ public:
         return *this;
     }
 
+    // Destructor Seguro
+    virtual ~DoubleLinkedList() {
+        std::unique_lock<std::shared_mutex> lock(this->m_mtx);
+        
+        Node* current = this->m_pRoot;
+        while (current) {
+            Node* next = current->getNext();
+            delete current;
+            current = next;             
+        }
+        
+        this->m_pRoot = nullptr;
+        this->m_tail = nullptr;
+        this->m_size = 0;
+    }
+
 private:
     void internal_insert(Node* &curr, Node* &nPrev, const value_type &value, Ref ref) {
         if(!curr || m_comp(value, curr->getDataRef())){
@@ -176,4 +192,6 @@ public:
         unique_lock<shared_mutex> lock(this->m_mtx);
         ::ForEach(rbegin(), rend(), func, forward<Args>(args)...);
     }
+
+
 };
