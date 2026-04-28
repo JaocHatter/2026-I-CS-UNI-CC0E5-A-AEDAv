@@ -137,12 +137,12 @@ private:
     void internal_push_back(value_type value, Ref ref) {
         Node* new_node = new Node(value, ref);
         if (!this->m_pRoot) {
-            new_node->setNext(n);
-            new_node->setPrev(n);
+            new_node->setNext(new_node);
+            new_node->setPrev(new_node);
             this->m_pRoot = this->m_tail = new_node;
         } else {
-            n->setNext(this->m_pRoot);
-            n->setPrev(this->m_tail);
+            new_node->setNext(this->m_pRoot);
+            new_node->setPrev(this->m_tail);
             this->m_tail->setNext(new_node);
             this->m_pRoot->setPrev(new_node);
             this->m_tail = new_node;
