@@ -66,11 +66,11 @@ void CircularDoubleLinkedListDemo(){
     DemoList(list2, "DescCDLL.txt");
 }
 
-void TestConcurrencia() {
-    cout << "\nTEST DE CONCURRENCIA" << endl;
-    LinkedList<AscendingLinkedListTrait<T1>> list;
+template <typename Container>
+void TestConcurrenciaGen(const string& nombre) {
+    cout << "\nTEST DE CONCURRENCIA - " << nombre << endl;
+    Container list;
 
-    // 5 hilos van a intentar meter 1000 elementos cada uno al mismo tiempo
     auto worker = [&list](int thread_id) {
         for(int i = 0; i < 1000; i++) {
             list.push_front(i, thread_id);
@@ -92,6 +92,13 @@ void TestConcurrencia() {
     } else {
         cout << "ESTADO: FALLO - Hubo corrupcion de memoria." << endl;
     }
+}
+
+void TestConcurrencia() {
+    TestConcurrenciaGen<LinkedList<AscendingLinkedListTrait<T1>>>("LinkedList");
+    TestConcurrenciaGen<DoubleLinkedList<AscendingDLLTrait<T1>>>("DoubleLinkedList");
+    TestConcurrenciaGen<CircleLinkedList<AscendingCircleLinkedListTrait<T1>>>("CircleLinkedList");
+    TestConcurrenciaGen<CircularDoubleLinkedList<AscendingCDLLTrait<T1>>>("CircularDoubleLinkedList");
 }
 
 void TestOperators() {
