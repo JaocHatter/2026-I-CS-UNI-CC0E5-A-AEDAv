@@ -30,12 +30,12 @@ public:
 };
 
 template <typename Container>
-class DoubleLinkedListBackwardIterator : public general_iterator<Container, LinkedListBackwardIterator<Container>>{
+class DoubleLinkedListBackwardIterator : public general_iterator<Container, DoubleLinkedListBackwardIterator<Container>>{
 public:
-    using MySelf = LinkedListBackwardIterator<Container>;
+    using MySelf = DoubleLinkedListBackwardIterator<Container>;
     using Parent = general_iterator<Container, MySelf>;
     using Parent::Parent;
-    
+
     MySelf operator++() {
         if (this->m_pNode) {
             this->m_pNode = this->m_pNode->getPrev();
@@ -50,18 +50,17 @@ public:
 // Acá estamos que heredamos de la clase LLNode, basicamente para heredar los metodos para avanzar de un nodo al siguiente
 // Esta clase añade algunos metodos pero para retroceder a nodos previos
 template <typename T>
-class DLLNode : public LLNode<T, DLLNode<T>>{
+class DLLNode : public LLNodeBase<T, DLLNode<T>>{
     protected:
-        // ya heredamos miembros como la data, la referencia y el siguiente nodo
+        using Node = DLLNode<T>;
         Node *m_pPrev;
     public:
-        DLLNode() : LLNode<T, DLLNode<T>>(), m_pPrev(nullptr) {}
-        DLLNode(T data, Ref ref, Node *next = nullptr, Node *prev = nullptr) : LLNode<T, DLLNode<T>>(data, ref, next), m_pPrev(prev) {}
+        DLLNode() : LLNodeBase<T, DLLNode<T>>(), m_pPrev(nullptr) {}
+        DLLNode(T data, Ref ref, Node *next = nullptr, Node *prev = nullptr) : LLNodeBase<T, DLLNode<T>>(data, ref, next), m_pPrev(prev) {}
 
         Node*  getPrev() const     { return m_pPrev; }
         void   setPrev(Node *prev) { m_pPrev = prev; }
         Node*& getPrevRef()        { return m_pPrev; }
-
 };
 
 template <typename T>
@@ -89,7 +88,7 @@ public:
     DoubleLinkedList() {}
 
     // TODO: Copy constructor
-    DoubleLinkedList(const DoubleLinkedList &other) : m_pRoot(nullptr), m_tail(nullptr), m_size(0) {
+    DoubleLinkedList(const DoubleLinkedList &other) {
         shared_lock<shared_mutex> lock(other.m_mtx);
         for(Node* curr = other.m_pRoot; curr != nullptr; curr = curr->getNext()) {
             push_back(curr->getData(), curr->getRef());
@@ -100,7 +99,7 @@ public:
     //       Es posible que no necesites este constructor ya que lo heredaste
 
     // TODO: Move constructor
-    DoubleLinkedList(LinkedList &&other) : m_pRoot(nullptr), m_tail(nullptr), m_size(0) {
+    DoubleLinkedList(DoubleLinkedList &&other) {
         unique_lock<shared_mutex> lockOther(other.m_mtx);
         this->m_pRoot = std::exchange(other.m_pRoot, nullptr);
         this->m_tail  = std::exchange(other.m_tail, nullptr);
@@ -109,9 +108,9 @@ public:
 
     // TODO: Copy assignment operator
     DoubleLinkedList& operator=(const DoubleLinkedList &other) {
-        if(this != other){
+        if(this != &other){
             // limpiamos
-            while (this->m_size > 0) pop_front(); 
+            while (this->m_size > 0) this->pop_front();
             //copiamos
             shared_lock<shared_mutex> lock(other.m_mtx);
             for (Node* curr = other.m_pRoot; curr != nullptr; curr = curr->getNext()) {
@@ -124,7 +123,7 @@ public:
     // TODO: Move assignment operator
     DoubleLinkedList& operator=(DoubleLinkedList &&other) {
         if (this != &other) {
-            while (this->m_size > 0) pop_front(); 
+            while (this->m_size > 0) this->pop_front();
             unique_lock<shared_mutex> lockOther(other.m_mtx);
             this->m_pRoot = std::exchange(other.m_pRoot, nullptr);
             this->m_tail  = std::exchange(other.m_tail, nullptr);
@@ -150,21 +149,18 @@ public:
     }
 
 private:
-    void internal_insert(Node* &curr, Node* &nPrev, const value_type &value, Ref ref) {
-        if(!curr || m_comp(value, curr->getDataRef())){
-            Node* tmp_node = new Node(value, ref, curr, nPrev);
-
-            if (curr != nullptr) {
-                curr->setPrev(newNode);
-            } else {
-                // Si no hay siguiente, el nuevo nodo es el nuevo tail
-                this->m_tail = newNode;
-            }
-            curr = newNode;
-            this->size++;
+    void internal_insert(Node* &curr, Node* prev, const value_type &value, Ref ref) {
+        if (!curr || this->m_comp(value, curr->getDataRef())) {
+            Node* new_node = new Node(value, ref, curr, prev);
+            if (curr != nullptr)
+                curr->setPrev(new_node);
+            else
+                this->m_tail = new_node;
+            curr = new_node;
+            this->m_size++;
             return;
         }
-        internal_insert(nPrev->getNextRef(), curr, value, ref);
+        internal_insert(curr->getNextRef(), curr, value, ref);
     }
 public:
 
@@ -191,22 +187,49 @@ public:
     }
 
     // Para una DLL debería existir un ForEach backward
-    template <typename Func,typename Args>
+    template <typename Func, typename... Args>
     void ReverseForEach(Func func, Args &&... args){
         unique_lock<shared_mutex> lock(this->m_mtx);
         ::ForEach(rbegin(), rend(), func, forward<Args>(args)...);
     }
 
-    // override de push_back para dll
-    void push_back(value_type value, Ref ref) override{
+    // push_front como mejor #1
+    void push_front(value_type value, Ref ref) override {
         unique_lock<shared_mutex> lock(this->m_mtx);
-        Node *newNode = new Node(value, ref, nullptr, this->m_tail);
-        if (this->m_tail){
-            this->m_tail->setNext(newNode);
-        }else{
-            this->m_pRoot = newNode;
+        Node* new_node = new Node(value, ref, this->m_pRoot, nullptr);
+        if (this->m_pRoot)
+            this->m_pRoot->setPrev(new_node);
+        else
+            this->m_tail = new_node;
+        this->m_pRoot = new_node;
+        this->m_size++;
+    }
+
+    // pop_front como mejora #2
+    std::tuple<value_type, Ref> pop_front() override {
+        unique_lock<shared_mutex> lock(this->m_mtx);
+        if (!this->m_pRoot) throw runtime_error("La lista esta vacia");
+        Node* temp = this->m_pRoot;
+        auto result = std::make_tuple(temp->getData(), temp->getRef());
+        if (this->m_size == 1) {
+            this->m_pRoot = this->m_tail = nullptr;
+        } else {
+            this->m_pRoot = temp->getNext();
+            this->m_pRoot->setPrev(nullptr);
         }
-        this->m_tail = newNode;
+        delete temp;
+        this->m_size--;
+        return result;
+    }
+
+    void push_back(value_type value, Ref ref) override {
+        unique_lock<shared_mutex> lock(this->m_mtx);
+        Node* new_node = new Node(value, ref, nullptr, this->m_tail);
+        if (this->m_tail)
+            this->m_tail->setNext(new_node);
+        else
+            this->m_pRoot = new_node;
+        this->m_tail = new_node;
         this->m_size++;
     }
 
@@ -216,7 +239,7 @@ public:
         os << "[";
         Node* curr = list.m_pRoot;
         while(curr){
-            os << "(" << curr->getData() << "," << act->getRef() << ")";
+            os << "(" << curr->getData() << "," << curr->getRef() << ")";
             if(curr->getNext()) {
                 os << ",";
             } 
