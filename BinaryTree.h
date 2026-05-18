@@ -48,6 +48,10 @@ template<typename T> using DescendingBSTrait = DescendingTrait<BinaryTreeNode<T>
 // Declaraciones de Iteradores
 template<typename C> class BTInorderForwardIterator;
 template<typename C> class BTInorderBackwardIterator;
+template<typename C> class BTPreorderForwardIterator;
+template<typename C> class BTPreorderBackwardIterator;
+template<typename C> class BTPostorderForwardIterator;
+template<typename C> class BTPostorderBackwardIterator;
 
 // funciones anticuadas eliminadas
 template<typename Trait>
