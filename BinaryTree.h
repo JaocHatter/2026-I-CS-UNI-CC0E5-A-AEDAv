@@ -81,7 +81,7 @@ class BinaryTree{
         size_t m_size;
         mutable shared_mutex m_mtx;
     public:
-        BinaryTree() : m_pRoot(nullptr) m_size(0) {}
+        BinaryTree() : m_pRoot(nullptr), m_size(0) {}
 
         // constructor copia
         BinaryTree(const BinaryTree& other) : m_pRoot(nullptr), m_size(0) {
@@ -112,6 +112,15 @@ class BinaryTree{
             n->m_pChild[0] = internal_copy(src->m_pChild[0]);
             n->m_pChild[1] = internal_copy(src->m_pChild[1]);
             return n;
+        }
+
+        void inorder_str(Node* node, ostringstream& oss, bool& first) const {
+            if (!node) return;
+            inorder_str(node->m_pChild[0], oss, first);
+            if (!first) oss << ",";
+            oss << node->m_data;
+            first = false;
+            inorder_str(node->m_pChild[1], oss, first);
         }
 
         size_t internal_height(Node* node) const {
@@ -246,44 +255,10 @@ private:
         this->m_pNode = n;
         push_left(n->m_pChild[1]);
     }
-    void inorder_str(Node* node, ostringstream& oss, bool& first) const {
-        if (!node) return;
-        inorder_str(node->m_pChild[0], oss, first);
-        if (!first) oss << ",";
-        oss << node->m_data;
-        first = false;
-        inorder_str(node->m_pChild[1], oss, first);
-    }
 public:
     BTInorderForwardIterator(Container* c, Node* root)
         : Parent(c, nullptr) { push_left(root); advance(); }
     BTInorderForwardIterator(Container* c, nullptr_t)
-        : Parent(c, nullptr) {}
-    MySelf operator++() { advance(); return *this; }
-};
-
-//inorder backward
-template<typename Container>
-class BTInorderBackwardIterator
-    : public general_iterator<Container, BTInorderBackwardIterator<Container>> {
-public:
-    using MySelf = BTInorderBackwardIterator<Container>;
-    using Parent = general_iterator<Container, MySelf>;
-    using Node   = typename Container::Node;
-    using Parent::Parent;
-private:
-    stack<Node*> m_stack;
-    void push_right(Node* n) { while (n) { m_stack.push(n); n = n->m_pChild[1]; } }
-    void advance() {
-        if (m_stack.empty()) { this->m_pNode = nullptr; return; }
-        Node* n = m_stack.top(); m_stack.pop();
-        this->m_pNode = n;
-        push_right(n->m_pChild[0]);
-    }
-public:
-    BTInorderBackwardIterator(Container* c, Node* root)
-        : Parent(c, nullptr) { push_right(root); advance(); }
-    BTInorderBackwardIterator(Container* c, nullptr_t)
         : Parent(c, nullptr) {}
     MySelf operator++() { advance(); return *this; }
 };
