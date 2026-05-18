@@ -56,6 +56,7 @@ template<typename C> class BTPostorderBackwardIterator;
 // funciones anticuadas eliminadas
 template<typename Trait>
 class BinaryTree{
+public:
     using value_type = typename Trait::value_type;
     using Node       = typename Trait::Node;
     using Comp    = typename Trait::Comp;
