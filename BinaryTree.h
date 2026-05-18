@@ -90,6 +90,22 @@ class BinaryTree{
             n->m_pChild[1] = internal_copy(src->m_pChild[1]);
             return n;
         }
+    protected:
+        virtual void internal_insert(Node*& pNode, value_type data) {
+            if (!pNode) { pNode = new Node(data); ++m_size; return; }
+            auto branch = !m_comp(pNode->m_data, data);
+            internal_insert(pNode->m_pChild[branch], data);
+        }
+
+    public:
+        virtual void insert(value_type data) {
+        unique_lock lock(m_mtx);
+        internal_insert(m_pRoot, data);
+        }
+        size_t size() const {
+            shared_lock lock(m_mtx);
+            return m_size;
+        }
 };
 
 // Codigo hecho en clase
