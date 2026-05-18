@@ -173,6 +173,11 @@ public:
         oss << "]";
         return oss.str();
     }
+
+    friend ostream& operator<<(ostream& os, const BinaryTree& t) {
+        os << t.ToString();
+        return os;
+    }
 };
 
 //inorder backward
