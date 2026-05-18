@@ -172,6 +172,16 @@ class BinaryTree{
             unique_lock lock(m_mtx);
             m_pRoot = internal_remove(m_pRoot, val);
         }
+        
+        string ToString() const {
+            shared_lock lock(m_mtx);
+            ostringstream oss;
+            bool first = true;
+            oss << "[";
+            inorder_str(m_pRoot, oss, first);
+            oss << "]";
+            return oss.str();
+        }
 
         friend ostream& operator<<(ostream& os, const BinaryTree& t) {
             os << t.ToString();
@@ -238,18 +248,6 @@ public:
     BTInorderForwardIterator(Container* c, nullptr_t)
         : Parent(c, nullptr) {}
     MySelf operator++() { advance(); return *this; }
-
-    string ToString() const {
-        shared_lock lock(m_mtx);
-        ostringstream oss;
-        bool first = true;
-        oss << "[";
-        inorder_str(m_pRoot, oss, first);
-        oss << "]";
-        return oss.str();
-    }
-
-
 };
 
 //inorder backward
