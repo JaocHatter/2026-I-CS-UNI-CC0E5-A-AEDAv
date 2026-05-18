@@ -276,4 +276,36 @@ public:
     MySelf operator++() { advance(); return *this; }
 };
 
+template<typename Container>
+class BTPreorderBackwardIterator
+    : public general_iterator<Container, BTPreorderBackwardIterator<Container>> {
+public:
+    using MySelf = BTPreorderBackwardIterator<Container>;
+    using Parent = general_iterator<Container, MySelf>;
+    using Node   = typename Container::Node;
+    using Parent::Parent;
+private:
+    vector<Node*> m_nodes;
+    int           m_idx;
+    void collect(Node* n) {
+        if (!n) return;
+        m_nodes.push_back(n);
+        collect(n->m_pChild[0]);
+        collect(n->m_pChild[1]);
+    }
+public:
+    BTPreorderBackwardIterator(Container* c, Node* root)
+        : Parent(c, nullptr), m_idx(-1) {
+        collect(root);
+        m_idx = (int)m_nodes.size() - 1;
+        this->m_pNode = (m_idx >= 0) ? m_nodes[m_idx] : nullptr;
+    }
+    BTPreorderBackwardIterator(Container* c, nullptr_t)
+        : Parent(c, nullptr), m_idx(-1) {}
+    MySelf operator++() {
+        --m_idx;
+        this->m_pNode = (m_idx >= 0) ? m_nodes[m_idx] : nullptr;
+        return *this;
+    }
+};
 #endif // __BINARYTREE_H__ 
