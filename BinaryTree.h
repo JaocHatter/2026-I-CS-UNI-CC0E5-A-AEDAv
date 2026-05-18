@@ -5,19 +5,44 @@
 #include <string>
 #include <fstream>
 #include <thread>
+#include <stack>
+#include <string>
+#include <vector>
+#include <sstream>
+#include <mutex>
+#include <shared_mutex>
+#include <utility>
+#include <algorithm>
+#include "containers/general_iterator.h"
+#include "containers/traits.h"
 using namespace std;
 
+// Definir la base CRTP 
+// (necesaria para que `m_pChild` tenga 
+// el tipo correcto al heredar en AVLNode)
+
+template<typename Derived, typename T>
+struct BinaryTreeNodeBase {
+    using value_type = T;
+    T        m_data;
+    Derived* m_pChild[2];
+    BinaryTreeNodeBase(T data) : m_data(data), m_pChild{nullptr, nullptr} {}
+    virtual ~BinaryTreeNodeBase() = default;
+    T& getDataRef()       { return m_data; }
+    T  getData()    const { return m_data; }
+};
 
 template<typename T>
-struct BinaryTreeNode{
-    T m_data;
-    BinaryTreeNode *m_pChild[2];
-    BinaryTreeNode(T data) : m_data(data), m_pChild{nullptr, nullptr} {}
+struct BinaryTreeNode : BinaryTreeNodeBase<BinaryTreeNode<T>, T> {
+    BinaryTreeNode(T data) : BinaryTreeNodeBase<BinaryTreeNode<T>, T>(data) {}
 };
 
 // Utilizar:
 //    AscendingTrait<BinaryTreeNode<T>> o 
 //    DescendingTrait<BinaryTreeNode<T>>
+
+template<typename T> using AscendingBSTrait  = AscendingTrait<BinaryTreeNode<T>>;
+template<typename T> using DescendingBSTrait = DescendingTrait<BinaryTreeNode<T>>;
 
 template<typename Trait>
 class BinaryTree{
