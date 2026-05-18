@@ -59,10 +59,14 @@ class BinaryTree{
 
     using forward_iterator = BTInorderForwardIterator<MySelf>;
     using backward_iterator = BTInorderBackwardIterator<MySelf>;
+    using preorder_forward_iterator = BTPreorderForwardIterator<MySelf>;
+    using preorder_backward_iterator = BTPreorderBackwardIterator<MySelf>;
 
     friend forward_iterator;
     friend backward_iterator;
-    
+    friend preorder_forward_iterator;
+    friend preorder_backward_iterator;
+
     protected:
         Node    *m_pRoot;
         Comp  m_comp;
@@ -129,6 +133,10 @@ class BinaryTree{
         forward_iterator end()   { return forward_iterator(this, nullptr); }
         backward_iterator rbegin() { return backward_iterator(this, m_pRoot); }
         backward_iterator rend()   { return backward_iterator(this, nullptr); }
+        preorder_forward_iterator preorder_begin() { return preorder_forward_iterator(this, m_pRoot); }
+        preorder_forward_iterator preorder_end()   { return preorder_forward_iterator(this, nullptr); }
+        preorder_backward_iterator preorder_rbegin() { return preorder_backward_iterator(this, m_pRoot); }
+        preorder_backward_iterator preorder_rend()   { return preorder_backward_iterator(this, nullptr); }
     };
 
 // inorder forward
@@ -243,14 +251,29 @@ public:
     MySelf operator++() { advance(); return *this; }
 };
 
-// Codigo hecho en clase
-template<typename Trait>
-void BinaryTree<Trait>::internal_insert(Node* &pNode, value_type data, Ref ref){
-    if( pNode == nullptr ){
-        pNode = new Node(data);
-        return;
+template<typename Container>
+class BTPreorderForwardIterator
+    : public general_iterator<Container, BTPreorderForwardIterator<Container>> {
+public:
+    using MySelf = BTPreorderForwardIterator<Container>;
+    using Parent = general_iterator<Container, MySelf>;
+    using Node   = typename Container::Node;
+    using Parent::Parent;
+private:
+    stack<Node*> m_stack;
+    void advance() {
+        if (m_stack.empty()) { this->m_pNode = nullptr; return; }
+        Node* n = m_stack.top(); m_stack.pop();
+        this->m_pNode = n;
+        if (n->m_pChild[1]) m_stack.push(n->m_pChild[1]);
+        if (n->m_pChild[0]) m_stack.push(n->m_pChild[0]);
     }
-    auto branch = !m_comp(pNode->m_data, data);
-    internal_insert(pNode->m_pChild[branch], data, ref);
-}
+public:
+    BTPreorderForwardIterator(Container* c, Node* root)
+        : Parent(c, nullptr) { if (root) m_stack.push(root); advance(); }
+    BTPreorderForwardIterator(Container* c, nullptr_t)
+        : Parent(c, nullptr) {}
+    MySelf operator++() { advance(); return *this; }
+};
+
 #endif // __BINARYTREE_H__ 
