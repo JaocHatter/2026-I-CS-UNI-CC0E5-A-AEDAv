@@ -112,6 +112,25 @@ class BinaryTree{
                         internal_height(node->m_pChild[1]));
         }
 
+        Node* internal_remove(Node* node, value_type val) {
+            if (!node) return nullptr;
+            bool eq = !m_comp(node->m_data, val) && !m_comp(val, node->m_data);
+            if (eq) {
+                if (!node->m_pChild[0] || !node->m_pChild[1]) {
+                    Node* child = node->m_pChild[0] ? node->m_pChild[0] : node->m_pChild[1];
+                    delete node; --m_size; return child;
+                }
+                Node* succ = node->m_pChild[1];
+                while (succ->m_pChild[0]) succ = succ->m_pChild[0];
+                node->m_data = succ->m_data;
+                node->m_pChild[1] = internal_remove(node->m_pChild[1], succ->m_data);
+                return node;
+            }
+            auto branch = !m_comp(node->m_data, val);
+            node->m_pChild[branch] = internal_remove(node->m_pChild[branch], val);
+            return node;
+        }
+
     protected:
         virtual void internal_insert(Node*& pNode, value_type data) {
             if (!pNode) { pNode = new Node(data); ++m_size; return; }
@@ -130,14 +149,28 @@ class BinaryTree{
         }
 
         size_t height() const {
-        shared_lock lock(m_mtx);
-        return internal_height(m_pRoot);
+            shared_lock lock(m_mtx);
+            return internal_height(m_pRoot);
         }
-        
+
         int balance_factor(Node* node) const {
             if (!node) return 0;
             return (int)internal_height(node->m_pChild[0])
                 - (int)internal_height(node->m_pChild[1]);
+        }
+
+        bool contains(value_type val) const {
+            shared_lock lock(m_mtx);
+            Node* cur = m_pRoot;
+            while (cur) {
+                if (!m_comp(cur->m_data, val) && !m_comp(val, cur->m_data)) return true;
+                cur = cur->m_pChild[!m_comp(cur->m_data, val)];
+            }
+            return false;
+        }
+        void remove(value_type val) {
+            unique_lock lock(m_mtx);
+            m_pRoot = internal_remove(m_pRoot, val);
         }
 
         template<typename Func, typename... Args>
