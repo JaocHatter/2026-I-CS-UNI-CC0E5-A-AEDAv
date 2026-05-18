@@ -44,58 +44,28 @@ struct BinaryTreeNode : BinaryTreeNodeBase<BinaryTreeNode<T>, T> {
 template<typename T> using AscendingBSTrait  = AscendingTrait<BinaryTreeNode<T>>;
 template<typename T> using DescendingBSTrait = DescendingTrait<BinaryTreeNode<T>>;
 
+
+// funciones anticuadas eliminadas
 template<typename Trait>
 class BinaryTree{
     using value_type = typename Trait::value_type;
     using Node       = typename Trait::Node;
-    using Compare    = typename Trait::Compare;
-    private:
+    using Comp    = typename Trait::Comp;
+    using MySelf     = BinaryTree<Trait>;
+    protected:
         Node    *m_pRoot;
-        Compare  m_comp;
+        Comp  m_comp;
+        size_t m_size;
+        mutable shared_mutex m_mtx;
     public:
-        BinaryTree() : m_pRoot(nullptr) {}
-        ~BinaryTree() {}
-        
-        // No sirve ... muy anticuado y tiene muchos casos especiales
-        void insert(value_type data){
-            Node *newNode = new Node(data);
-            if(m_pRoot == nullptr){
-                m_pRoot = newNode;
-            }else{
-                Node *current = m_pRoot;
-                while(true){
-                    if(Compare()(data, current->data)){
-                        if(current->left == nullptr){
-                            current->left = newNode;
-                            break;
-                        }
-                        current = current->left;
-                    }else{
-                        if(current->right == nullptr){
-                            current->right = newNode;
-                            break;
-                        }
-                        current = current->right;
-                    }
-                }
-            }
-        }
-protected:
-        void internal_insert(Node* &pNode, value_type data, Ref ref);
-
-public: 
-        void insert(value_type data, Ref ref){
-            internal_insert(m_pRoot, data, ref);
-        }
-        void print(){
-            print(m_pRoot);
-        }
-        void print(Node *node){
-            if(node != nullptr){
-                print(node->left);
-                cout << node->data << " ";
-                print(node->right);
-            }
+        BinaryTree() : m_pRoot(nullptr) m_size(0) {}
+        ~BinaryTree() { internal_destroy(m_pRoot); }
+    private:
+        void internal_destroy(Node* node) {
+            if (!node) return;
+            internal_destroy(node->m_pChild[0]);
+            internal_destroy(node->m_pChild[1]);
+            delete node;
         }
 };
 
