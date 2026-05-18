@@ -59,6 +59,14 @@ class BinaryTree{
         mutable shared_mutex m_mtx;
     public:
         BinaryTree() : m_pRoot(nullptr) m_size(0) {}
+
+        // constructor copia
+        BinaryTree(const BinaryTree& other) : m_pRoot(nullptr), m_size(0) {
+            shared_lock lock(other.m_mtx);
+            m_pRoot = internal_copy(other.m_pRoot);
+            m_size  = other.m_size;
+        }
+
         ~BinaryTree() { internal_destroy(m_pRoot); }
     private:
         void internal_destroy(Node* node) {
@@ -66,6 +74,14 @@ class BinaryTree{
             internal_destroy(node->m_pChild[0]);
             internal_destroy(node->m_pChild[1]);
             delete node;
+        }
+
+        Node* internal_copy(Node* src) {
+            if (!src) return nullptr;
+            Node* n = new Node(src->m_data);
+            n->m_pChild[0] = internal_copy(src->m_pChild[0]);
+            n->m_pChild[1] = internal_copy(src->m_pChild[1]);
+            return n;
         }
 };
 
