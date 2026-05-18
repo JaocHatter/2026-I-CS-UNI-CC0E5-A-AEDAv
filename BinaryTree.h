@@ -216,13 +216,6 @@ class BinaryTree{
             return is;
         }
 
-        template<typename Func, typename... Args>
-        void ForEach(Func func, Args&&... args) {
-            unique_lock<shared_mutex> lock(m_mtx);
-            if (m_size == 0) return;
-            ::ForEach(this->begin(), this->end(), func, std::forward<Args>(args)...);;
-        }
-
         forward_iterator begin() { return forward_iterator(this, m_pRoot); }
         forward_iterator end()   { return forward_iterator(this, nullptr); }
         backward_iterator rbegin() { return backward_iterator(this, m_pRoot); }
@@ -235,6 +228,13 @@ class BinaryTree{
         postorder_forward_iterator postorder_end()   { return postorder_forward_iterator(this, nullptr); }
         postorder_backward_iterator postorder_rbegin() { return postorder_backward_iterator(this, m_pRoot); }
         postorder_backward_iterator postorder_rend()   { return postorder_backward_iterator(this, nullptr); }
+
+        template<typename Func, typename... Args>
+        void ForEach(Func func, Args&&... args) {
+            unique_lock<shared_mutex> lock(m_mtx);
+            if (m_size == 0) return;
+            ::ForEach(this->begin(), this->end(), func, std::forward<Args>(args)...);;
+        }
 };
 
 // inorder forward
