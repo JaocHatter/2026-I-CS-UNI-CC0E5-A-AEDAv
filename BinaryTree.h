@@ -178,6 +178,17 @@ public:
         os << t.ToString();
         return os;
     }
+
+    friend istream& operator>>(istream& is, BinaryTree& t) {
+        char ch;
+        if (!(is >> ch) || ch != '[') { is.setstate(ios::failbit); return is; }
+        value_type val;
+        while (is >> ch && ch != ']') {
+            if (ch != ',') is.putback(ch);
+            if (is >> val) t.insert(val);
+        }
+        return is;
+    }
 };
 
 //inorder backward
