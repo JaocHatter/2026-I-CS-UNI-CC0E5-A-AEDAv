@@ -15,6 +15,7 @@
 #include <algorithm>
 #include "containers/general_iterator.h"
 #include "containers/traits.h"
+#include "containers/util.h"
 using namespace std;
 
 // Definir la base CRTP 
@@ -115,6 +116,13 @@ class BinaryTree{
         size_t size() const {
             shared_lock lock(m_mtx);
             return m_size;
+        }
+
+        template<typename Func, typename... Args>
+        void ForEach(Func func, Args&&... args) {
+            unique_lock<shared_mutex> lock(m_mtx);
+            if (m_size == 0) return;
+            ::ForEach(this->begin(), this->end(), func, std::forward<Args>(args)...);;
         }
 
         forward_iterator begin() { return forward_iterator(this, m_pRoot); }
