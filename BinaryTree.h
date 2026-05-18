@@ -105,6 +105,13 @@ class BinaryTree{
             n->m_pChild[1] = internal_copy(src->m_pChild[1]);
             return n;
         }
+
+        size_t internal_height(Node* node) const {
+            if (!node) return 0;
+            return 1 + max(internal_height(node->m_pChild[0]),
+                        internal_height(node->m_pChild[1]));
+        }
+
     protected:
         virtual void internal_insert(Node*& pNode, value_type data) {
             if (!pNode) { pNode = new Node(data); ++m_size; return; }
@@ -120,6 +127,17 @@ class BinaryTree{
         size_t size() const {
             shared_lock lock(m_mtx);
             return m_size;
+        }
+
+        size_t height() const {
+        shared_lock lock(m_mtx);
+        return internal_height(m_pRoot);
+        }
+        
+        int balance_factor(Node* node) const {
+            if (!node) return 0;
+            return (int)internal_height(node->m_pChild[0])
+                - (int)internal_height(node->m_pChild[1]);
         }
 
         template<typename Func, typename... Args>
