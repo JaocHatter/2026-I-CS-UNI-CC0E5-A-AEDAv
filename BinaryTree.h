@@ -67,6 +67,13 @@ class BinaryTree{
             m_size  = other.m_size;
         }
 
+        // move constructor
+        BinaryTree(BinaryTree&& other) : m_pRoot(nullptr), m_size(0) {
+            unique_lock lock(other.m_mtx);
+            m_pRoot = exchange(other.m_pRoot, nullptr);
+            m_size  = exchange(other.m_size, 0);
+        }
+
         ~BinaryTree() { internal_destroy(m_pRoot); }
     private:
         void internal_destroy(Node* node) {
