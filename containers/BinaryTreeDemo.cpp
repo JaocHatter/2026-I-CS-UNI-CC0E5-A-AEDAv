@@ -4,8 +4,24 @@
 #include <vector>
 
 #include "../BinaryTree.h"
+#include "../BinaryTreeAVL.h"
 
 using namespace std;
+
+void BinaryTreeAVLDemo() {
+    cout << "\n=== AVL Demo ===" << endl;
+
+    BinaryTreeAVL<AscendingAVLTrait<int>> avl;
+    for (int v : {1, 2, 3, 4, 5, 6, 7}) avl.insert(v);
+
+    cout << "AVL inorder: " << avl << endl;
+    cout << "Height: " << avl.height() << " (esperado <= 3)" << endl;
+
+    BinaryTreeAVL<DescendingAVLTrait<int>> avl2;
+    for (int v : {7, 6, 5, 4, 3, 2, 1}) avl2.insert(v);
+    cout << "AVL desc inorder: " << avl2 << endl;
+    cout << "Height: " << avl2.height() << " (esperado <= 3)" << endl;
+}
 
 void BinaryTreeDemo() {
     cout << "\n=== BinaryTree Demo ===" << endl;
@@ -85,4 +101,6 @@ void BinaryTreeDemo() {
     for (auto& t : threads) t.join();
     cout << "size=" << ctree.size() << " (expected 5000) -> "
          << (ctree.size() == 5000 ? "EXITO" : "FALLO") << endl;
+
+    BinaryTreeAVLDemo();
 }
