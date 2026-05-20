@@ -171,10 +171,10 @@ public:
             return internal_height(m_pRoot);
         }
 
-        int balance_factor(Node* node) const {
+        size_t balance_factor(Node* node) const {
             if (!node) return 0;
-            return (int)internal_height(node->m_pChild[0])
-                - (int)internal_height(node->m_pChild[1]);
+            return internal_height(node->m_pChild[0])
+                - internal_height(node->m_pChild[1]);
         }
 
         bool contains(value_type val) const {
@@ -325,7 +325,7 @@ public:
     using Parent::Parent;
 private:
     vector<Node*> m_nodes;
-    int           m_idx;
+    size_t           m_idx;
     void collect(Node* n) {
         if (!n) return;
         m_nodes.push_back(n);
@@ -336,7 +336,7 @@ public:
     BTPreorderBackwardIterator(Container* c, Node* root)
         : Parent(c, nullptr), m_idx(-1) {
         collect(root);
-        m_idx = (int)m_nodes.size() - 1;
+        m_idx = (size_t)m_nodes.size() - 1;
         this->m_pNode = (m_idx >= 0) ? m_nodes[m_idx] : nullptr;
     }
     BTPreorderBackwardIterator(Container* c, nullptr_t)
