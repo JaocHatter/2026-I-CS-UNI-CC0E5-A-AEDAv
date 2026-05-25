@@ -7,8 +7,10 @@
 #include <sstream>
 #include <stdexcept>
 #include <mutex>
+#include <shared_mutex>
 #include <utility>
-#include <tuple>
+#include <functional>
+#include "general_iterator.h"
 #include "util.h"
 #include "../types.h"
 #include "traits.h"
@@ -44,7 +46,7 @@ public:
     using MySelf = heap_forward_iterator<Container>;
     using Parent = general_iterator<Container, MySelf>;
     using Parent::Parent;
-    MySelf operator++() { this->m_pNode++; return *this; }
+    MySelf operator++() { this->m_pNode++; return *this; }  
 };
 
 template<typename Trait>
