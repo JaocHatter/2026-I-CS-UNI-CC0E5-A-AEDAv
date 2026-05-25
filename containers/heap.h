@@ -151,6 +151,25 @@ public:
         return oss.str();
     }
 
+    friend ostream& operator<<(ostream& os, const Heap& h) {
+        return os << h.toString();
+    }
+
+    friend istream& operator>>(istream& is, Heap& h) {
+        char ch;
+        if (!(is >> ch) || ch != '[') { is.setstate(ios::failbit); return is; }
+        while (is.peek() != ']' && is >> ch) {
+            if (ch == '(') {
+                value_type val;
+                Ref        ref;
+                char       comma, close;
+                if (is >> val >> comma >> ref >> close)
+                    h.insert(val, ref);
+            }
+        }
+        is >> ch;
+        return is;
+    }
 };
 
 
