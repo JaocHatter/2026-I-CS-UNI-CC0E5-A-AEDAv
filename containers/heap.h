@@ -90,6 +90,24 @@ public:
     
     virtual ~Heap() { delete[] m_data; }
 
+    Heap(const Heap& other) {
+        shared_lock lock(other.m_mtx);
+        m_capacity = other.m_capacity;
+        m_size     = other.m_size;
+        m_comp     = other.m_comp;
+        m_data     = new Node[m_capacity];
+        for (size_t i = 0; i < m_size; ++i)
+            m_data[i] = other.m_data[i];
+    }
+
+    Heap(Heap&& other) {
+        unique_lock lock(other.m_mtx);
+        m_data     = exchange(other.m_data,     nullptr);
+        m_size     = exchange(other.m_size,     0);
+        m_capacity = exchange(other.m_capacity, 0);
+        m_comp     = move(other.m_comp);
+    }
+
     void insert(value_type value, Ref ref);
     
     // Extrae el elemento de mayor o menor prioridad (depende del heap)
