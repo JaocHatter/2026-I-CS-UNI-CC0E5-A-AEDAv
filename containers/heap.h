@@ -37,6 +37,16 @@ struct MinHeapTrait : public BaseTrait<HeapNode<T>, less<T>> {};
 template<typename T>
 struct MaxHeapTrait : public BaseTrait<HeapNode<T>, greater<T>> {};
 
+template<typename Container>
+class heap_forward_iterator
+    : public general_iterator<Container, heap_forward_iterator<Container>> {
+public:
+    using MySelf = heap_forward_iterator<Container>;
+    using Parent = general_iterator<Container, MySelf>;
+    using Parent::Parent;
+    MySelf operator++() { this->m_pNode++; return *this; }
+};
+
 template<typename Trait>
 class Heap{
 public:
@@ -45,6 +55,8 @@ public:
     using MySelf     = Heap<Trait>;
     using Node       = typename Trait::Node;
     
+    using forward_iterator = heap_forward_iterator<MySelf>;
+    friend forward_iterator;
 private:
     Node*                m_data;
     size_t               m_size;
@@ -170,6 +182,9 @@ public:
         is >> ch;
         return is;
     }
+
+    forward_iterator begin() { return forward_iterator(this, m_data); }
+    forward_iterator end()   { return forward_iterator(this, m_data + m_size); }
 };
 
 
