@@ -134,10 +134,23 @@ public:
         return m_size == 0;
     }
 
-    
-    bool isEmpty();
-    size_t size();
-    string toString();
+    size_t size() const {
+        shared_lock lock(m_mtx);
+        return m_size;
+    }
+
+    string toString() const {
+        shared_lock lock(m_mtx);
+        ostringstream oss;
+        oss << "[";
+        for (size_t i = 0; i < m_size; ++i) {
+            if (i > 0) oss << ",";
+            oss << "(" << m_data[i].getData() << "," << m_data[i].getRef() << ")";
+        }
+        oss << "]";
+        return oss.str();
+    }
+
 };
 
 
