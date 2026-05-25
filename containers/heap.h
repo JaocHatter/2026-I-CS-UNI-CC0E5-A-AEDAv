@@ -14,26 +14,28 @@
 #include "traits.h"
 using namespace std;
 
-template <typename T>
-struct MinHeapTrait : public BaseTrait<T, less<T>> {};
-
-template <typename T>
-struct MaxHeapTrait : public BaseTrait<T, greater<T>> {};
-
-template<typename Trait>
+template<typename T>
 class HeapNode{
 public:
-    using value_type = typename Trait::value_type;
-    using MySelf     = HeapNode<Trait>;
-
+    using value_type = T;
+    using MySelf     = HeapNode<T>;
 private:
-    value_type m_data;
+    T m_data;
     Ref        m_ref;
 public:
-    HeapNode(value_type data, Ref ref, Comp comp) : m_data(data), m_ref(ref), m_comp(comp) {}
+    HeapNode() : m_data(T()), m_ref(0) {}
+    HeapNode(T data, Ref ref) : m_data(data), m_ref(ref) {}
+    T&  getDataRef()      { return m_data; }
+    T   getData()   const { return m_data; }
+    Ref getRef()    const { return m_ref; }
     ~HeapNode() {}
-
 };
+
+template<typename T>
+struct MinHeapTrait : public BaseTrait<HeapNode<T>, less<T>> {};
+
+template<typename T>
+struct MaxHeapTrait : public BaseTrait<HeapNode<T>, greater<T>> {};
 
 template<typename Trait>
 class Heap{
