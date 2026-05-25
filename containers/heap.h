@@ -108,14 +108,32 @@ public:
         m_comp     = move(other.m_comp);
     }
 
-    void insert(value_type value, Ref ref);
-    
-    // Extrae el elemento de mayor o menor prioridad (depende del heap)
-    void extract(); 
-    
-    // Obtiene el elemento de mayor o menor prioridad (depende del heap) 
-    // sin removerlo
-    Node peek();
+    void insert(value_type value, Ref ref = 0) {
+        unique_lock lock(m_mtx);
+        if (m_size == m_capacity) resize();
+        m_data[m_size++] = Node(value, ref);
+        heapifyUp(m_size - 1);
+    }
+
+    void extract() {
+        unique_lock lock(m_mtx);
+        if (m_size == 0) throw out_of_range("Heap::extract — heap is empty");
+        swap(m_data[0], m_data[m_size - 1]);
+        --m_size;
+        if (m_size > 0) heapifyDown(0);
+    }
+
+    Node peek() const {
+        shared_lock lock(m_mtx);
+        if (m_size == 0) throw out_of_range("Heap::peek — heap is empty");
+        return m_data[0];
+    }
+
+    bool isEmpty() const {
+        shared_lock lock(m_mtx);
+        return m_size == 0;
+    }
+
     
     bool isEmpty();
     size_t size();
