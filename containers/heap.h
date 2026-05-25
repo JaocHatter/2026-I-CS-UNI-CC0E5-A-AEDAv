@@ -85,9 +85,11 @@ private:
     }
 
 public:
-    Heap() : m_vec(), m_comp() {}
-    ~Heap() {}
+    Heap(size_t capacity = 10)
+        : m_data(new Node[capacity]), m_size(0), m_capacity(capacity), m_comp() {}
     
+    virtual ~Heap() { delete[] m_data; }
+
     void insert(value_type value, Ref ref);
     
     // Extrae el elemento de mayor o menor prioridad (depende del heap)
