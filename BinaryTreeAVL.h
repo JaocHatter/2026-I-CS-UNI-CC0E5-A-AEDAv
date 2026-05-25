@@ -10,7 +10,7 @@ using namespace std;
 // heredamos de la clase nodo base
 template<typename T>
 struct AVLNode : BinaryTreeNodeBase<AVLNode<T>, T> {
-    int m_height;
+    size_t m_height;
     AVLNode(T data) : BinaryTreeNodeBase<AVLNode<T>, T>(data), m_height(1) {}
 };
 
@@ -33,9 +33,9 @@ public:
     }
 
 private:
-    int node_height(Node* n) const { return n ? n->m_height : 0; }
+    size_t node_height(Node* n) const { return n ? n->m_height : 0; }
 
-    int balance(Node* n) const {
+    size_t balance(Node* n) const {
         return n ? node_height(n->m_pChild[0]) - node_height(n->m_pChild[1]) : 0;
     }
 
@@ -43,24 +43,14 @@ private:
         if (n) n->m_height = 1 + max(node_height(n->m_pChild[0]), node_height(n->m_pChild[1]));
     }
 
-    Node* rotate_right(Node* y) {
-        Node* x  = y->m_pChild[0];
-        Node* T2 = x->m_pChild[1];
-        x->m_pChild[1] = y;
-        y->m_pChild[0] = T2;
-        update_height(y);
-        update_height(x);
-        return x;
-    }
-
-    Node* rotate_left(Node* x) {
-        Node* y  = x->m_pChild[1];
-        Node* T2 = y->m_pChild[0];
-        y->m_pChild[0] = x;
-        x->m_pChild[1] = T2;
-        update_height(x);
-        update_height(y);
-        return y;
+    Node* rotate(Node* node, bool is_left) {
+        Node* x_child  = node->m_pChild[is_left];
+        Node* y_child = x_child->m_pChild[1 - is_left];
+        x_child->m_pChild[1 - is_left] = node;
+        node->m_pChild[is_left] = y_child;
+        update_height(node);
+        update_height(x_child);
+        return x_child;
     }
 
     Node* avl_insert(Node* node, value_type data) {
@@ -70,23 +60,23 @@ private:
         node->m_pChild[branch] = avl_insert(node->m_pChild[branch], data);
         update_height(node);
 
-        int bf = balance(node);
+        size_t bf = balance(node);
 
-        // LL (data > pChild[0])  →  rotacion right 
+        // LL (data > pChild[0])  →  rotacion right
         if (bf > 1  &&  this->m_comp(node->m_pChild[0]->m_data, data))
-            return rotate_right(node);
+            return rotate(node, false);
         // RR (data <= pChild[1]) →  rotacion left
         if (bf < -1 && !this->m_comp(node->m_pChild[1]->m_data, data))
-            return rotate_left(node);
-        // LR (data <= pChild[0]) →  rotacion left -> right 
+            return rotate(node, true);
+        // LR (data <= pChild[0]) →  rotacion left -> right
         if (bf > 1  && !this->m_comp(node->m_pChild[0]->m_data, data)) {
-            node->m_pChild[0] = rotate_left(node->m_pChild[0]);
-            return rotate_right(node);
+            node->m_pChild[0] = rotate(node->m_pChild[0], true);
+            return rotate(node, false);
         }
         // RL (data > pChild[1])  →  rotacion right -> left
         if (bf < -1 &&  this->m_comp(node->m_pChild[1]->m_data, data)) {
-            node->m_pChild[1] = rotate_right(node->m_pChild[1]);
-            return rotate_left(node);
+            node->m_pChild[1] = rotate(node->m_pChild[1], false);
+            return rotate(node, true);
         }
         return node;
     }
