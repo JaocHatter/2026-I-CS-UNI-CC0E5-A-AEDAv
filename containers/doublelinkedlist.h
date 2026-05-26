@@ -3,37 +3,34 @@
 
 #include "linkedlist.h"
 
-template <typename T>
-class DLLNode : public LLNode<T, DLLNode<T>>{
-    using Node = DLLNode<T>; 
-private:
-    Node *m_pPrev;
+template<typename T>
+class DLLNode : public LLNodeBase<T, DLLNode<T>> {
+    DLLNode<T>* m_pPrev;
 public:
-    DLLNode() : LLNode<T, DLLNode<T>>(), m_pPrev(nullptr) {}
-    DLLNode(T data, Ref ref, Node *next = nullptr, Node *prev = nullptr)
-        : LLNode<T, DLLNode<T>>(data, ref, next), m_pPrev(prev) {}
+    DLLNode() : LLNodeBase<T, DLLNode<T>>(), m_pPrev(nullptr) {}
+    DLLNode(T data, Ref ref, DLLNode<T>* next = nullptr, DLLNode<T>* prev = nullptr)
+        : LLNodeBase<T, DLLNode<T>>(data, ref, next), m_pPrev(prev) {}
     virtual ~DLLNode() {}
 
-    Node*  getPrev() const     { return m_pPrev; }
-    void   setPrev(Node *prev) { m_pPrev = prev; }
-    Node*& getPrevRef()        { return m_pPrev; }
+    DLLNode<T>*  getPrev()            const { return m_pPrev; }
+    void         setPrev(DLLNode<T>* p)     { m_pPrev = p;    }
+    DLLNode<T>*& getPrevRef()               { return m_pPrev; }
 };
 
-template <typename T>
-struct AscendingDLLTrait  : BaseTrait<DLLNode<T>, less<T>>{
-};
+template<typename T>
+struct AscendingDLLTrait  : BaseTrait<DLLNode<T>, less<T>>    {};
+template<typename T>
+struct DescendingDLLTrait : BaseTrait<DLLNode<T>, greater<T>> {};
 
-template <typename T>
-struct DescendingDLLTrait : BaseTrait<DLLNode<T>, greater<T>>{
-};
-
-template <typename Trait>
-class DoubleLinkedList : public LinkedList<Trait>{
+// ── DoubleLinkedList ──────────────────────────────────────────────────────────
+template<typename Trait>
+class DoubleLinkedList : public LinkedList<Trait> {
 public:
-    using value_type       = typename Trait::value_type;
-    using Node             = typename Trait::Node;
-    using Comp             = typename Trait::Comp;
-    using MySelf           = DoubleLinkedList<Trait>;
+    using value_type        = typename Trait::value_type;
+    using Node              = typename Trait::Node;
+    using Comp              = typename Trait::Comp;
+    using MySelf            = DoubleLinkedList<Trait>;
+
     using forward_iterator  = LinkedListForwardIterator <MySelf>;
     using backward_iterator = LinkedListBackwardIterator<MySelf>;
     friend forward_iterator;
@@ -46,73 +43,70 @@ public:
 
     DoubleLinkedList() : LinkedList<Trait>() {}
 
-    DoubleLinkedList(const DoubleLinkedList &other) : LinkedList<Trait>() {
+    DoubleLinkedList(const DoubleLinkedList& other) : LinkedList<Trait>() {
         shared_lock<shared_mutex> lock(other.m_mtx);
-        for (Node* curr = static_cast<Node*>(other.m_pRoot); curr != nullptr; curr = curr->getNext())
-            push_back(curr->getData(), curr->getRef());
+        for (Node* c = static_cast<Node*>(other.m_pRoot); c; c = c->getNext())
+            push_back(c->getData(), c->getRef());
     }
 
-    DoubleLinkedList(DoubleLinkedList &&other) : LinkedList<Trait>(std::move(other)) {}
+    DoubleLinkedList(DoubleLinkedList&& other) : LinkedList<Trait>(move(other)) {}
 
-    DoubleLinkedList& operator=(const DoubleLinkedList &other) {
+    DoubleLinkedList& operator=(const DoubleLinkedList& other) {
         if (this != &other) {
             while (this->m_size > 0) this->pop_front();
             shared_lock<shared_mutex> lock(other.m_mtx);
-            for (Node* curr = static_cast<Node*>(other.m_pRoot); curr != nullptr; curr = curr->getNext())
-                push_back(curr->getData(), curr->getRef());
+            for (Node* c = static_cast<Node*>(other.m_pRoot); c; c = c->getNext())
+                push_back(c->getData(), c->getRef());
         }
         return *this;
     }
 
-    DoubleLinkedList& operator=(DoubleLinkedList &&other) {
+    DoubleLinkedList& operator=(DoubleLinkedList&& other) {
         if (this != &other) {
             while (this->m_size > 0) this->pop_front();
-            unique_lock<shared_mutex> lockOther(other.m_mtx);
-            this->m_pRoot = std::exchange(other.m_pRoot, nullptr);
-            this->m_tail  = std::exchange(other.m_tail,  nullptr);
-            this->m_size  = std::exchange(other.m_size,  0);
+            unique_lock<shared_mutex> lock(other.m_mtx);
+            this->m_pRoot = exchange(other.m_pRoot, nullptr);
+            this->m_tail  = exchange(other.m_tail,  nullptr);
+            this->m_size  = exchange(other.m_size,  0);
         }
         return *this;
     }
 
-    template <typename Func, typename... Args>
-    void ForEach(Func func, Args &&... args) {
+    template<typename Func, typename... Args>
+    void ForEach(Func func, Args&&... args) {
         unique_lock<shared_mutex> lock(this->m_mtx);
         if (this->m_size == 0) return;
         for (auto& item : *this)
-            func(item, std::forward<Args>(args)...);
+            func(item, forward<Args>(args)...);
     }
 
     void push_back(value_type value, Ref ref) override {
         unique_lock<shared_mutex> lock(this->m_mtx);
-        Node* newNode = new Node(value, ref);
+        Node* n = new Node(value, ref);
         if (this->m_size == 0) {
-            this->m_pRoot = newNode;
-            this->m_tail  = newNode;
+            this->m_pRoot = this->m_tail = n;
         } else {
             Node* tail = static_cast<Node*>(this->m_tail);
-            tail->setNext(newNode);
-            newNode->setPrev(tail);
-            this->m_tail = newNode;
+            tail->setNext(n);
+            n->setPrev(tail);
+            this->m_tail = n;
         }
-        this->m_size++;
+        ++this->m_size;
     }
 
     void push_front(value_type value, Ref ref) override {
         unique_lock<shared_mutex> lock(this->m_mtx);
-        Node* newNode = new Node(value, ref);
+        Node* n = new Node(value, ref);
         if (this->m_size == 0) {
-            this->m_pRoot = newNode;
-            this->m_tail  = newNode;
+            this->m_pRoot = this->m_tail = n;
         } else {
             Node* root = static_cast<Node*>(this->m_pRoot);
-            newNode->setNext(root);
-            root->setPrev(newNode);
-            this->m_pRoot = newNode;
+            n->setNext(root);
+            root->setPrev(n);
+            this->m_pRoot = n;
         }
-        this->m_size++;
+        ++this->m_size;
     }
-
 };
 
 #endif
