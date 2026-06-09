@@ -5,12 +5,13 @@
 #include <mutex>
 
 #include "hashtable.h"
+#include "../types.h"
 using namespace std;
 
 void HashTableDemo() {
     cout << "\n=== HashTable Demo ===" << endl;
 
-    HashTable<int, int> m;
+    HashTable<Type, Type> m;
 
     m[5] = 3;
     m[10] = 7;
@@ -35,7 +36,7 @@ void HashTableDemo() {
 
     cout << "\n=== I/O Demo ===" << endl;
 
-    HashTable<int, int> h1;
+    HashTable<Type, Type> h1;
     h1[1] = 11;
     h1[2] = 22;
     h1[3] = 33;
@@ -45,7 +46,7 @@ void HashTableDemo() {
     fout.close();
     cout << "Guardado: " << h1 << endl;
 
-    HashTable<int, int> h2;
+    HashTable<Type, Type> h2;
     ifstream fin("HashTable.txt");
     fin >> h2;
     fin.close();
@@ -54,19 +55,19 @@ void HashTableDemo() {
 
     cout << "\n=== Copy/Move Demo ===" << endl;
 
-    HashTable<int, int> h3;
+    HashTable<Type, Type> h3;
     h3[7] = 70; h3[8] = 80;
 
-    HashTable<int, int> h4(h3);
+    HashTable<Type, Type> h4(h3);
     cout << "Original: " << h3 << endl;
     cout << "Copia:    " << h4 << endl;
 
-    HashTable<int, int> h5(move(h3));
+    HashTable<Type, Type> h5(move(h3));
     cout << "Movido:   " << h5 << endl;
 
-    cout << "\n=== HashTable<string, int> Demo ===" << endl;
+    cout << "\n=== HashTable<Type2, Type> Demo ===" << endl;
 
-    HashTable<string, int> words;
+    HashTable<Type2, Type> words;
     words["hola"]    = 1;
     words["mundo"]   = 2;
     words["aeda"]    = 3;
@@ -78,13 +79,13 @@ void HashTableDemo() {
 
     cout << "\n=== Concurrency test (5 threads x 1000 inserts) ===" << endl;
 
-    HashTable<int, int> cH;
-    auto worker = [&cH](int start) {
-        for (int i = start; i < start + 1000; ++i)
+    HashTable<Type, Type> cH;
+    auto worker = [&cH](Type start) {
+        for (Type i = start; i < start + 1000; ++i)
             cH[i] = i * 2;
     };
     vector<thread> threads;
-    for (int i = 0; i < 5; ++i) threads.emplace_back(worker, i * 1000);
+    for (T1 i = 0; i < 5; ++i) threads.emplace_back(worker, i * 1000);
     for (auto& t : threads) t.join();
 
     cout << "size=" << cH.size() << " (expected 5000) -> "

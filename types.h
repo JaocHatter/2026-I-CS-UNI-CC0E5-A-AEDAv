@@ -1,6 +1,8 @@
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
+#include <string>
+
 // C/C++
 // typedef int Type;
 
@@ -13,5 +15,7 @@ using Type = int;
 using T1 = int;
 
 using Ref = long;
+
+using Type2 = std::string;
 
 #endif // __TYPES_H__
