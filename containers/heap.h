@@ -166,6 +166,7 @@ public:
     }
 
     friend ostream& operator<<(ostream& os, const Heap& h) {
+        shared_lock<shared_mutex> lock(h.m_mtx);
         return os << h.toString();
     }
 
