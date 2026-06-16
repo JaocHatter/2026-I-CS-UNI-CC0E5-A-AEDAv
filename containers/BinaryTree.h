@@ -13,9 +13,9 @@
 #include <shared_mutex>
 #include <utility>
 #include <algorithm>
-#include "containers/general_iterator.h"
-#include "containers/traits.h"
-#include "containers/util.h"
+#include "general_iterator.h"
+#include "traits.h"
+#include "util.h"
 using namespace std;
 
 // Definir la base CRTP 
