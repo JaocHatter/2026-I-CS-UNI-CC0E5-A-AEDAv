@@ -2,7 +2,6 @@
 #include <fstream>
 #include <thread>
 #include <vector>
-#include <mutex>
 
 #include "hashtable.h"
 #include "../types.h"
@@ -11,7 +10,7 @@ using namespace std;
 void HashTableDemo() {
     cout << "\n=== HashTable Demo ===" << endl;
 
-    HashTable<Type, Type> m;
+    HashTableOf<Type, Type> m;
 
     m[5] = 3;
     m[10] = 7;
@@ -36,7 +35,7 @@ void HashTableDemo() {
 
     cout << "\n=== I/O Demo ===" << endl;
 
-    HashTable<Type, Type> h1;
+    HashTableOf<Type, Type> h1;
     h1[1] = 11;
     h1[2] = 22;
     h1[3] = 33;
@@ -46,7 +45,7 @@ void HashTableDemo() {
     fout.close();
     cout << "Guardado: " << h1 << endl;
 
-    HashTable<Type, Type> h2;
+    HashTableOf<Type, Type> h2;
     ifstream fin("HashTable.txt");
     fin >> h2;
     fin.close();
@@ -55,19 +54,19 @@ void HashTableDemo() {
 
     cout << "\n=== Copy/Move Demo ===" << endl;
 
-    HashTable<Type, Type> h3;
+    HashTableOf<Type, Type> h3;
     h3[7] = 70; h3[8] = 80;
 
-    HashTable<Type, Type> h4(h3);
+    HashTableOf<Type, Type> h4(h3);
     cout << "Original: " << h3 << endl;
     cout << "Copia:    " << h4 << endl;
 
-    HashTable<Type, Type> h5(move(h3));
+    HashTableOf<Type, Type> h5(move(h3));
     cout << "Movido:   " << h5 << endl;
 
-    cout << "\n=== HashTable<Type2, Type> Demo ===" << endl;
+    cout << "\n=== HashTableOf<Type2, Type> Demo ===" << endl;
 
-    HashTable<Type2, Type> words;
+    HashTableOf<Type2, Type> words;
     words["hola"]    = 1;
     words["mundo"]   = 2;
     words["aeda"]    = 3;
@@ -79,7 +78,7 @@ void HashTableDemo() {
 
     cout << "\n=== Concurrency test (5 threads x 1000 inserts) ===" << endl;
 
-    HashTable<Type, Type> cH;
+    HashTableOf<Type, Type> cH;
     auto worker = [&cH](Type start) {
         for (Type i = start; i < start + 1000; ++i)
             cH[i] = i * 2;

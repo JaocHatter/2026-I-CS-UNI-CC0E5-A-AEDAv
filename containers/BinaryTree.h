@@ -252,6 +252,8 @@ public:
         // No son seguros para iteracion concurrente con insert()/remove()
         // (use-after-free). Para concurrencia usa ForEach() (bloquea toda la
         // travesia) o snapshot().
+        Node* getRoot() const { return m_pRoot; }
+
         forward_iterator begin() { return forward_iterator(this, m_pRoot); }
         forward_iterator end()   { return forward_iterator(this, nullptr); }
         backward_iterator rbegin() { return backward_iterator(this, m_pRoot); }
