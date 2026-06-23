@@ -6,6 +6,11 @@
 #include "traits.h"
 using namespace std;
 
+//const char * keys="CDAMPIWNBKEHOLJYQZFXVRTSGU";
+const char * keys1 = "D1XJ2xTg8zKL9AhijOPQcEowRSp0NbW567BUfCqrs4FdtYZakHIuvGV3eMylmn";
+const char * keys2 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const char * keys3 = "DYZakHIUwxVJ203ejOP9Qc8AdtuEop1XvTRghSNbW567BfiCqrs4FGMyzKLlmn";
+
 using KeyType = char;
 using Trait   = Tree34Trait<KeyType>;
 using BT      = BTree<Trait>;
@@ -14,9 +19,8 @@ void DemoBTree() {
     // --- insert ---
     cout << "\n[insert]\n";
     BT arbol;
-    const string claves = "mQ3rZ8vP1wN5sJ7tK2uL6xO4yH9aB0cD";
-    for (Size idx = 0; idx < claves.size(); ++idx)
-        arbol.insert(claves[idx], Ref(idx * 3 + 1));
+    for (Size idx = 0; keys1[idx] != '\0'; ++idx)
+        arbol.insert(keys1[idx], Ref(idx * 3 + 1));
     cout << "  size=" << arbol.size() << "  height=" << arbol.height() << "  order=" << arbol.order() << "\n";
 
     // --- search ---
