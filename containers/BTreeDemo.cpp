@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <thread>
 #include <vector>
 #include "../types.h"
 #include "BTree.h"
@@ -14,6 +15,15 @@ const char * keys3 = "DYZakHIUwxVJ203ejOP9Qc8AdtuEop1XvTRghSNbW567BfiCqrs4FGMyzK
 using KeyType = char;
 using Trait   = BTreeTrait<KeyType, 3>;
 using BT      = BTree<Trait>;
+
+struct Insertador {
+    BT& arbol;
+    Ref  idHilo;
+    void operator()() const {
+        for (Size k = 0; k < 150; ++k)
+            arbol.insert(KeyType('A' + ((idHilo * 11 + k) % 26)), idHilo);
+    }
+};
 
 void DemoBTree() {
     // --- insert ---
@@ -96,4 +106,16 @@ void DemoBTree() {
     BT trasladado(move(clon));
     cout << "  Trasladado      : size=" << trasladado.size() << "  " << trasladado << "\n";
     cout << "  Fuente tras move: size=" << clon.size() << "\n";
+
+    // --- concurrencia ---
+    cout << "\n[Concurrencia]\n";
+    BT arbolConcurrente;
+    const Size numHilos = 4;
+    vector<thread> hilos;
+    hilos.reserve(numHilos);
+    for (Size h = 0; h < numHilos; ++h)
+        hilos.emplace_back(Insertador{arbolConcurrente, Ref(h + 1)});
+    for (auto& hilo : hilos) hilo.join();
+    cout << "  inserciones lanzadas: " << (numHilos * 150) << "\n";
+    cout << "  size final (sin corrupcion, <= 26 claves unicas): " << arbolConcurrente.size() << "\n";
 }

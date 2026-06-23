@@ -12,7 +12,7 @@
 #include "traits.h"
 #include "BTreePage.h"
 
-// [CAMBIO] BTree<Trait>: un solo param de template en lugar de BTree<keyType,ObjIDType>.
+// BTree<Trait>: un solo param de template en lugar de BTree<keyType,ObjIDType>.
 // Trait (BTreeTrait) encapsula value_type, Comp y Order,
 // eliminando params redundantes y permitiendo reutilizar perfiles de árbol predefinidos.
 template <typename Trait>
@@ -26,8 +26,8 @@ public:
     using Entry = typename Page::Entry;
     using Node  = Page;
 
-    // [CAMBIO] Clase Iterator: permite usar BTree en range-based for y algoritmos STL.
-    // La versión del profesor no tenía ningún iterador; solo era posible imprimir con Print().
+    // Clase Iterator: permite usar BTree en range-based for y algoritmos STL.
+    // La versión de antes no tenía ningún iterador; solo era posible imprimir con Print().
     // Implementación: pila de pares (página, índice) para recorrido inorden sin recursión.
     class Iterator {
         std::vector<std::pair<Page*, Size>> m_stack;
@@ -79,19 +79,19 @@ public:
     Iterator end()   const { return Iterator(); }
 
 private:
-    // [CAMBIO] m_pRoot es puntero en lugar de objeto valor (m_Root del profesor).
+    // m_pRoot es puntero en lugar de objeto valor (m_Root de antes).
     // El puntero es necesario para implementar deepCopy en el copy constructor
     // y std::exchange en el move constructor.
     Page*  m_pRoot;
     Level  m_height;
     Flag   m_unique;
     Size   m_numKeys;
-    // [CAMBIO] shared_mutex: permite lecturas concurrentes (shared_lock) y escrituras
-    // exclusivas (unique_lock). El profesor no tenía ninguna protección de concurrencia.
+    // shared_mutex: permite lecturas concurrentes (shared_lock) y escrituras
+    // exclusivas (unique_lock). antes no tenía ninguna protección de concurrencia.
     mutable std::shared_mutex m_mtx;
 
-    // [CAMBIO] deepCopy: copia recursiva de todo el árbol.
-    // Necesario para el copy constructor; el profesor carecía de él porque m_Root
+    // deepCopy: copia recursiva de todo el árbol.
+    // Necesario para el copy constructor; antes carecía de él porque m_Root
     // era un valor y se copiaba superficialmente (sin clonar los hijos en heap).
     Page* deepCopy(Page* src) const {
         if (!src) return nullptr;
@@ -110,7 +110,7 @@ public:
         m_pRoot->setMaxKeysForChilds(Order);
     }
 
-    // [CAMBIO] Copy constructor: la versión del profesor carecía de él.
+    // Copy constructor: la versión de antes carecía de él.
     // shared_lock en la fuente permite copiar mientras otros hilos leen el árbol origen.
     BTree(const BTree& o) : m_pRoot(nullptr), m_height(1), m_unique(true), m_numKeys(0) {
         std::shared_lock<std::shared_mutex> lock(o.m_mtx);
@@ -120,7 +120,7 @@ public:
         m_numKeys = o.m_numKeys;
     }
 
-    // [CAMBIO] Move constructor: transfiere la propiedad de m_pRoot sin copiar el árbol.
+    // Move constructor: transfiere la propiedad de m_pRoot sin copiar el árbol.
     // std::exchange deja el origen en estado válido (nullptr/0) para su destrucción segura.
     BTree(BTree&& o) noexcept : m_pRoot(nullptr), m_height(1), m_unique(true), m_numKeys(0) {
         std::unique_lock<std::shared_mutex> lock(o.m_mtx);
@@ -167,8 +167,8 @@ public:
         return true;
     }
 
-    // [CAMBIO] remove retorna tuple<value_type,Ref> y lanza excepción si no encuentra.
-    // El profesor retornaba bool con la clave perdida; no había forma de obtener el valor
+    // remove retorna tuple<value_type,Ref> y lanza excepción si no encuentra.
+    // antes retornaba bool con la clave perdida; no había forma de obtener el valor
     // eliminado. El centinela -1 era inválido si ObjID era no numérico o si -1 era válido.
     std::tuple<value_type, Ref> remove(const value_type& key) {
         std::unique_lock<std::shared_mutex> lock(m_mtx);
@@ -181,8 +181,8 @@ public:
         return {outValue, outRef};
     }
 
-    // [CAMBIO] search retorna tuple<value_type,Ref> y lanza excepción si no encuentra.
-    // El profesor retornaba ObjIDType(-1) como centinela, lo cual es incorrecto cuando
+    // search retorna tuple<value_type,Ref> y lanza excepción si no encuentra.
+    // antes retornaba ObjIDType(-1) como centinela, lo cual es incorrecto cuando
     // ObjIDType no es numérico o cuando -1 es un ID legítimo.
     std::tuple<value_type, Ref> search(const value_type& key) const {
         std::shared_lock<std::shared_mutex> lock(m_mtx);
@@ -215,8 +215,8 @@ public:
         m_pRoot->forEachPage(0, func, std::forward<Args>(args)...);
     }
 
-    // [CAMBIO] toString / operator<< / operator>>: serialización del árbol como texto.
-    // El profesor solo tenía Print(ostream&) que imprimía pero no permitía reconstruir.
+    // toString / operator<< / operator>>: serialización del árbol como texto.
+    // antes solo tenía Print(ostream&) que imprimía pero no permitía reconstruir.
     // El formato "[( dato:ref ),...]" es legible y reversible con operator>>.
     std::string toString() const {
         std::ostringstream oss;

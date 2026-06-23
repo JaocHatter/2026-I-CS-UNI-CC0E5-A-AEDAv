@@ -121,7 +121,7 @@ private:
     }
     void clearKeys() { m_keyCount = 0; }
 
-    //  Bug corregido del profesor: el loop original era `i < m_keyCount`,
+    //  Bug corregido: el loop original era `i < m_keyCount`,
     // omitiendo m_subPages[m_keyCount] (hijo más derecho) → memory leak.
     // Cambio a `i <= m_keyCount` para destruir todos los hijos incluyendo el derecho.
     void reset() {
