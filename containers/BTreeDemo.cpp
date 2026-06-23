@@ -12,7 +12,7 @@ const char * keys2 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuv
 const char * keys3 = "DYZakHIUwxVJ203ejOP9Qc8AdtuEop1XvTRghSNbW567BfiCqrs4FGMyzKLlmn";
 
 using KeyType = char;
-using Trait   = Tree34Trait<KeyType>;
+using Trait   = BTreeTrait<KeyType, 3>;
 using BT      = BTree<Trait>;
 
 void DemoBTree() {

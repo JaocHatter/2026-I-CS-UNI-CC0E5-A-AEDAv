@@ -13,7 +13,7 @@
 #include "BTreePage.h"
 
 // [CAMBIO] BTree<Trait>: un solo param de template en lugar de BTree<keyType,ObjIDType>.
-// Trait (BTreeTrait / Tree23Trait / Tree34Trait) encapsula value_type, Comp y Order,
+// Trait (BTreeTrait) encapsula value_type, Comp y Order,
 // eliminando params redundantes y permitiendo reutilizar perfiles de árbol predefinidos.
 template <typename Trait>
 class BTree {

@@ -6,15 +6,11 @@
 #include "../types.h"
 #include "traits.h"
 
-// [CAMBIO] Forward declaration con Trait: BTree ahora recibe un solo param de policy.
 template <typename Trait> class BTree;
 
-// [CAMBIO] enum class en lugar de enum C: evita que los valores contaminen el namespace
-// global. 'bt_ok' / 'bt_nofound' ya no colisionan con ningún símbolo externo.
-// Nombres sin prefijo "bt_" porque el scope del enum class los protege.
 enum class bt_ErrorCode { ok, overflow, underflow, duplicate, notFound, rootMerged };
 
-// [CAMBIO] BTreeEntry reemplaza a tagObjectInfo<keyType,ObjIDType>.
+//  BTreeEntry reemplaza a tagObjectInfo<keyType,ObjIDType>.
 // Razones: (1) ObjIDType se fija a Ref (long) para simplificar la firma del template;
 // (2) se añaden operator< > == para que el Iterator pueda comparar entradas;
 // (3) se añaden operator<< >> para que BTree pueda serializar con operator>>/<<.
@@ -48,7 +44,7 @@ struct BTreeEntry {
     }
 };
 
-// [CAMBIO] BTreePage<Trait> reemplaza a CBTreePage<keyType,ObjIDType>.
+//  BTreePage<Trait> reemplaza a CBTreePage<keyType,ObjIDType>.
 // Un solo param de template: Trait provee value_type, Comp y Order.
 template <typename Trait>
 class BTreePage {
@@ -70,7 +66,7 @@ private:
     Size m_maxKeysForChilds;
     Flag m_unique;
 
-    // [CAMBIO] locate() reemplaza a la función global binary_search().
+    //  locate() reemplaza a la función global binary_search().
     // Como método privado: (1) encapsula el acceso a m_keys; (2) evita colisión
     // con std::binary_search cuando hay 'using namespace std'.
     Size locate(const value_type& key) const {
@@ -87,7 +83,7 @@ private:
         return last;
     }
 
-    // [CAMBIO] insertAt / removeAt reemplazan a las funciones globales insert_at / remove.
+    //  insertAt / removeAt reemplazan a las funciones globales insert_at / remove.
     // Como métodos estáticos privados: no contaminan el namespace global.
     // 'remove' global colisionaba con std::remove al incluir <algorithm>.
     template <typename Container, typename Item>
@@ -107,7 +103,7 @@ private:
     Size freeCells()   const { return m_maxKeys - m_keyCount; }
     Flag isFull()      const { return m_keyCount >= m_maxKeys; }
     Flag isOverflow()  const { return m_keyCount > m_maxKeys; }
-    // [CAMBIO] minKeys() calculado on-the-fly en lugar del atributo m_MinKeys.
+    //  minKeys() calculado on-the-fly en lugar del atributo m_MinKeys.
     // Eliminar el atributo evita que quede desincronizado con m_maxKeys.
     Size minKeys()     const { return 2 * m_maxKeys / 3; }
     Flag isUnderflow() const { return m_keyCount < minKeys(); }
@@ -125,7 +121,7 @@ private:
     }
     void clearKeys() { m_keyCount = 0; }
 
-    // [CAMBIO] Bug corregido del profesor: el loop original era `i < m_keyCount`,
+    //  Bug corregido del profesor: el loop original era `i < m_keyCount`,
     // omitiendo m_subPages[m_keyCount] (hijo más derecho) → memory leak.
     // Cambio a `i <= m_keyCount` para destruir todos los hijos incluyendo el derecho.
     void reset() {
@@ -163,7 +159,7 @@ private:
         return true;
     }
 
-    // [CAMBIO] assert() eliminados de redistribute2, mergePages y mergeRoot.
+    //  assert() eliminados de redistribute2, mergePages y mergeRoot.
     // Los assert abortaban en debug cuando pos estaba en los bordes (pos==0 o pos==keyCount).
     // Sin ellos el código continúa y los invariantes se mantienen por la lógica de ramas.
     Flag redistribute2(Size pos) {
@@ -326,7 +322,7 @@ public:
         : m_keyCount(0), m_maxKeys(maxKeys), m_maxKeysForChilds(maxKeys), m_unique(unique) {
         create();
     }
-    // [CAMBIO] Destructor no virtual: CBTreePage tenía virtual ~CBTreePage() sin subclases,
+    //  Destructor no virtual: CBTreePage tenía virtual ~CBTreePage() sin subclases,
     // generando una vtable innecesaria. BTreePage no será subclaseada.
     ~BTreePage() { reset(); }
 
@@ -398,7 +394,7 @@ public:
         return false;
     }
 
-    // [CAMBIO] forEach / firstThat / forEachPage usan variadic templates con perfect forwarding
+    //  forEach / firstThat / forEachPage usan variadic templates con perfect forwarding
     // en lugar de punteros de función C (lpfnForEach2/3 con void*).
     // Beneficio principal: permiten pasar lambdas con capturas y cualquier functor
     // directamente, sin el truco de void* para transportar estado adicional.
@@ -426,7 +422,7 @@ public:
         return nullptr;
     }
 
-    // [CAMBIO] forEachPage: nuevo método que visita nodos completos en lugar de claves.
+    //  forEachPage: nuevo método que visita nodos completos en lugar de claves.
     // Útil para inspeccionar la estructura interna: factor de ocupación, altura real, etc.
     template <typename Func, typename... Args>
     void forEachPage(Level level, Func func, Args&&... args) {
