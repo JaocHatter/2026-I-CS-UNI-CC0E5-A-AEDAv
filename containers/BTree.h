@@ -1,149 +1,251 @@
-// btree.h
-
-#ifndef BTREE_H
-#define BTREE_H
+#ifndef __BTREE_H__
+#define __BTREE_H__
 
 #include <iostream>
+#include <sstream>
+#include <vector>
+#include <stdexcept>
+#include <shared_mutex>
+#include <mutex>
+#include <utility>
+#include "../types.h"
+#include "traits.h"
 #include "BTreePage.h"
 
-#define DEFAULT_BTREE_ORDER 3
+// [CAMBIO] BTree<Trait>: un solo param de template en lugar de BTree<keyType,ObjIDType>.
+// Trait (BTreeTrait / Tree23Trait / Tree34Trait) encapsula value_type, Comp y Order,
+// eliminando params redundantes y permitiendo reutilizar perfiles de árbol predefinidos.
+template <typename Trait>
+class BTree {
+public:
+    using value_type            = typename Trait::value_type;
+    using Comp                  = typename Trait::Comp;
+    static constexpr Size Order = Trait::Order;
 
-template <typename keyType, typename ObjIDType = long>
-class BTree 
-// this is the full version of the BTree
-{
-       typedef CBTreePage <keyType, ObjIDType> BTNode;// useful shorthand
-       /*struct ObjectInfo
-       {
-               keyType first;
-               long    second;
-               ObjectInfo *&operator->() { return this; }
-       };*/
+    using Page  = BTreePage<Trait>;
+    using Entry = typename Page::Entry;
+    using Node  = Page;
+
+    // [CAMBIO] Clase Iterator: permite usar BTree en range-based for y algoritmos STL.
+    // La versión del profesor no tenía ningún iterador; solo era posible imprimir con Print().
+    // Implementación: pila de pares (página, índice) para recorrido inorden sin recursión.
+    class Iterator {
+        std::vector<std::pair<Page*, Size>> m_stack;
+        const BTree* m_owner = nullptr;
+
+        // Desciende por el hijo izquierdo de cada nodo acumulando niveles en la pila.
+        void pushPath(Page* page, Size idx) {
+            while (page && page->m_keyCount > 0) {
+                m_stack.push_back({page, idx});
+                page = page->m_subPages[idx];
+                idx = 0;
+            }
+        }
+
+    public:
+        Iterator() = default;
+        explicit Iterator(Page* root, const BTree* owner) : m_owner(owner) { pushPath(root, 0); }
+
+        // shared_lock: múltiples lectores concurrentes pueden desreferenciar sin bloquearse.
+        Entry& operator*() const {
+            std::shared_lock<std::shared_mutex> lock(m_owner->m_mtx);
+            return m_stack.back().first->m_keys[m_stack.back().second];
+        }
+
+        // Avanza al siguiente elemento en inorden: sube en la pila y baja por el hijo derecho.
+        Iterator& operator++() {
+            std::shared_lock<std::shared_mutex> lock(m_owner->m_mtx);
+            auto [page, idx] = m_stack.back();
+            m_stack.pop_back();
+
+            if (idx + 1 < page->m_keyCount)
+                m_stack.push_back({page, idx + 1});
+
+            Page* rightChild = page->m_subPages[idx + 1];
+            if (rightChild) pushPath(rightChild, 0);
+
+            return *this;
+        }
+
+        Flag operator==(const Iterator& o) const { return m_stack == o.m_stack; }
+        Flag operator!=(const Iterator& o) const { return !(*this == o); }
+    };
+
+    // begin/end const y non-const: necesarios para range-for sobre BTree const.
+    // shared_lock en begin() protege la lectura de m_pRoot en contexto concurrente.
+    Iterator begin()       { std::shared_lock<std::shared_mutex> lock(m_mtx); return Iterator(m_pRoot, this); }
+    Iterator end()         { return Iterator(); }
+    Iterator begin() const { std::shared_lock<std::shared_mutex> lock(m_mtx); return Iterator(m_pRoot, this); }
+    Iterator end()   const { return Iterator(); }
+
+private:
+    // [CAMBIO] m_pRoot es puntero en lugar de objeto valor (m_Root del profesor).
+    // El puntero es necesario para implementar deepCopy en el copy constructor
+    // y std::exchange en el move constructor.
+    Page*  m_pRoot;
+    Level  m_height;
+    Flag   m_unique;
+    Size   m_numKeys;
+    // [CAMBIO] shared_mutex: permite lecturas concurrentes (shared_lock) y escrituras
+    // exclusivas (unique_lock). El profesor no tenía ninguna protección de concurrencia.
+    mutable std::shared_mutex m_mtx;
+
+    // [CAMBIO] deepCopy: copia recursiva de todo el árbol.
+    // Necesario para el copy constructor; el profesor carecía de él porque m_Root
+    // era un valor y se copiaba superficialmente (sin clonar los hijos en heap).
+    Page* deepCopy(Page* src) const {
+        if (!src) return nullptr;
+        auto* dst = new Page(src->m_maxKeys, src->m_unique);
+        dst->m_maxKeysForChilds = src->m_maxKeysForChilds;
+        dst->m_keyCount = src->m_keyCount;
+        dst->m_keys     = src->m_keys;
+        for (Size i = 0; i <= src->m_keyCount; ++i)
+            dst->m_subPages[i] = deepCopy(src->m_subPages[i]);
+        return dst;
+    }
 
 public:
-       //typedef ObjectInfo iterator;
-       typedef typename BTNode::lpfnForEach2    lpfnForEach2;
-       typedef typename BTNode::lpfnForEach3    lpfnForEach3;
-       typedef typename BTNode::lpfnFirstThat2  lpfnFirstThat2;
-       typedef typename BTNode::lpfnFirstThat3  lpfnFirstThat3;
-       typedef typename BTNode::ObjectInfo      ObjectInfo;
+    explicit BTree(Flag unique = true)
+        : m_pRoot(new Page(2 * Order + 1, unique)), m_height(1), m_unique(unique), m_numKeys(0) {
+        m_pRoot->setMaxKeysForChilds(Order);
+    }
 
-public:
-       BTree(int order = DEFAULT_BTREE_ORDER, bool unique = true);
-       ~BTree();
-       //int           Open (char * name, int mode);
-       //int           Create (char * name, int mode);
-       //int           Close ();
-       bool            Insert (const keyType key, const int ObjID);
-       bool            Remove (const keyType key, const int ObjID);
-       ObjIDType       Search (const keyType key);
-       long            size()  { return m_NumKeys; }
-       long            height() { return m_Height;      }
-       long            GetOrder() { return m_Order;     }
+    // [CAMBIO] Copy constructor: la versión del profesor carecía de él.
+    // shared_lock en la fuente permite copiar mientras otros hilos leen el árbol origen.
+    BTree(const BTree& o) : m_pRoot(nullptr), m_height(1), m_unique(true), m_numKeys(0) {
+        std::shared_lock<std::shared_mutex> lock(o.m_mtx);
+        m_pRoot   = deepCopy(o.m_pRoot);
+        m_height  = o.m_height;
+        m_unique  = o.m_unique;
+        m_numKeys = o.m_numKeys;
+    }
 
-       void            Print (ostream &os);
-       void            ForEach( lpfnForEach2 lpfn, void *pExtra1 );
-       void            ForEach( lpfnForEach3 lpfn, void *pExtra1, void *pExtra2);
-       ObjectInfo*     FirstThat( lpfnFirstThat2 lpfn, void *pExtra1 );
-       ObjectInfo*     FirstThat( lpfnFirstThat3 lpfn, void *pExtra1, void *pExtra2);
-       //typedef               ObjectInfo iterator;
+    // [CAMBIO] Move constructor: transfiere la propiedad de m_pRoot sin copiar el árbol.
+    // std::exchange deja el origen en estado válido (nullptr/0) para su destrucción segura.
+    BTree(BTree&& o) noexcept : m_pRoot(nullptr), m_height(1), m_unique(true), m_numKeys(0) {
+        std::unique_lock<std::shared_mutex> lock(o.m_mtx);
+        m_pRoot   = std::exchange(o.m_pRoot, nullptr);
+        m_height  = std::exchange(o.m_height, 0);
+        m_unique  = o.m_unique;
+        m_numKeys = std::exchange(o.m_numKeys, 0);
+    }
 
-protected:
-       BTNode          m_Root;
-       int             m_Height;  // height of tree
-       int             m_Order;   // order of tree
-       long            m_NumKeys; // number of keys
-       bool            m_Unique;  // Accept the elements only once ?
+    BTree& operator=(const BTree& o) {
+        if (this != &o) {
+            std::unique_lock<std::shared_mutex> lk(m_mtx);
+            std::shared_lock<std::shared_mutex> lo(o.m_mtx);
+            delete m_pRoot;
+            m_pRoot   = deepCopy(o.m_pRoot);
+            m_height  = o.m_height;
+            m_unique  = o.m_unique;
+            m_numKeys = o.m_numKeys;
+        }
+        return *this;
+    }
+
+    BTree& operator=(BTree&& o) noexcept {
+        if (this != &o) {
+            std::unique_lock<std::shared_mutex> lk(m_mtx), lo(o.m_mtx);
+            delete m_pRoot;
+            m_pRoot   = std::exchange(o.m_pRoot, nullptr);
+            m_height  = std::exchange(o.m_height, 0);
+            m_unique  = o.m_unique;
+            m_numKeys = std::exchange(o.m_numKeys, 0);
+        }
+        return *this;
+    }
+
+    ~BTree() { delete m_pRoot; }
+
+    // unique_lock en insert/remove: garantiza acceso exclusivo durante la modificación.
+    Flag insert(const value_type& key, Ref ref) {
+        std::unique_lock<std::shared_mutex> lock(m_mtx);
+        auto error = m_pRoot->insert(key, ref);
+        if (error == bt_ErrorCode::duplicate) return false;
+        ++m_numKeys;
+        if (error == bt_ErrorCode::overflow) { m_pRoot->splitRoot(); ++m_height; }
+        return true;
+    }
+
+    // [CAMBIO] remove retorna tuple<value_type,Ref> y lanza excepción si no encuentra.
+    // El profesor retornaba bool con la clave perdida; no había forma de obtener el valor
+    // eliminado. El centinela -1 era inválido si ObjID era no numérico o si -1 era válido.
+    std::tuple<value_type, Ref> remove(const value_type& key) {
+        std::unique_lock<std::shared_mutex> lock(m_mtx);
+        value_type outValue{}; Ref outRef{};
+        auto error = m_pRoot->remove(key, outValue, outRef);
+        if (error == bt_ErrorCode::notFound)
+            throw std::runtime_error("BTree::remove - clave no encontrada");
+        --m_numKeys;
+        if (error == bt_ErrorCode::rootMerged) --m_height;
+        return {outValue, outRef};
+    }
+
+    // [CAMBIO] search retorna tuple<value_type,Ref> y lanza excepción si no encuentra.
+    // El profesor retornaba ObjIDType(-1) como centinela, lo cual es incorrecto cuando
+    // ObjIDType no es numérico o cuando -1 es un ID legítimo.
+    std::tuple<value_type, Ref> search(const value_type& key) const {
+        std::shared_lock<std::shared_mutex> lock(m_mtx);
+        value_type outValue{}; Ref outRef{};
+        if (!m_pRoot->search(key, outValue, outRef))
+            throw std::runtime_error("BTree::search - clave no encontrada");
+        return {outValue, outRef};
+    }
+
+    Size  size()   const { std::shared_lock<std::shared_mutex> lock(m_mtx); return m_numKeys; }
+    Level height() const { std::shared_lock<std::shared_mutex> lock(m_mtx); return m_height; }
+    Size  order()  const { return Order; }
+
+    // forEach / firstThat / forEachPage delegan al iterador de página con shared_lock.
+    template <typename Func, typename... Args>
+    void forEach(Func func, Args&&... args) {
+        std::shared_lock<std::shared_mutex> lock(m_mtx);
+        m_pRoot->forEach(0, func, std::forward<Args>(args)...);
+    }
+
+    template <typename Func, typename... Args>
+    Entry* firstThat(Func func, Args&&... args) {
+        std::shared_lock<std::shared_mutex> lock(m_mtx);
+        return m_pRoot->firstThat(0, func, std::forward<Args>(args)...);
+    }
+
+    template <typename Func, typename... Args>
+    void forEachPage(Func func, Args&&... args) {
+        std::shared_lock<std::shared_mutex> lock(m_mtx);
+        m_pRoot->forEachPage(0, func, std::forward<Args>(args)...);
+    }
+
+    // [CAMBIO] toString / operator<< / operator>>: serialización del árbol como texto.
+    // El profesor solo tenía Print(ostream&) que imprimía pero no permitía reconstruir.
+    // El formato "[( dato:ref ),...]" es legible y reversible con operator>>.
+    std::string toString() const {
+        std::ostringstream oss;
+        oss << "[";
+        Flag first = true;
+        for (const auto& e : *this) {
+            if (!first) oss << ",";
+            oss << "(" << e << ")";
+            first = false;
+        }
+        oss << "]";
+        return oss.str();
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const BTree& t) {
+        return os << t.toString();
+    }
+
+    // Lee el formato producido por operator<< y re-inserta cada entrada en el árbol.
+    friend std::istream& operator>>(std::istream& is, BTree& t) {
+        Token ch;
+        if (!(is >> ch) || ch != '[') { is.clear(std::ios_base::failbit); return is; }
+        Entry e; Token paren;
+        while (is >> ch && ch != ']')
+            if (ch == '(')
+                if (is >> e >> paren)
+                    t.insert(e.m_data, e.m_ref);
+        return is;
+    }
 };
 
-const int MaxHeight = 5;
-template <typename keyType, typename ObjIDType>
-BTree<keyType, ObjIDType>::BTree(int order, bool unique)
-                               : m_Unique(unique),
-                                 m_Order(order),
-                                 m_Root(2 * order  + 1, unique),
-                                 m_NumKeys(0)
-{
-       m_Root.SetMaxKeysForChilds(order);
-       m_Height = 1;
-}
-
-template <typename keyType, typename ObjIDType>
-BTree<keyType, ObjIDType>::~BTree()
-{
-}
-
-template <typename keyType, typename ObjIDType>
-bool BTree<keyType, ObjIDType>::Insert(const keyType key, const int ObjID)
-{
-       bt_ErrorCode error = m_Root.Insert(key, ObjID);
-       if( error == bt_duplicate )
-               return false;
-       m_NumKeys++;
-       if( error == bt_overflow )
-       {
-               m_Root.SplitRoot();
-               m_Height++;
-       }
-       return true;
-}
-
-template <typename keyType, typename ObjIDType>
-bool BTree<keyType, ObjIDType>::Remove (const keyType key, const int ObjID)
-{
-       bt_ErrorCode error = m_Root.Remove(key, ObjID);
-       if( error == bt_duplicate || error == bt_nofound )
-               return false;
-       m_NumKeys--;
-
-       if( error == bt_rootmerged )
-               m_Height--;
-       return true;
-}
-
-template <typename keyType, typename ObjIDType>
-ObjIDType BTree<keyType, ObjIDType>::Search (const keyType key)
-{
-       ObjIDType ObjID = -1;
-       m_Root.Search(key, ObjID);
-       return ObjID;
-}
-
-
-template <typename keyType, typename ObjIDType>
-void BTree<keyType, ObjIDType>::ForEach(lpfnForEach2 lpfn, void *pExtra1)
-{
-       m_Root.ForEach(lpfn, 0, pExtra1);
-}
-
-template <typename keyType, typename ObjIDType>
-void BTree<keyType, ObjIDType>::ForEach(lpfnForEach3 lpfn, void *pExtra1, void *pExtra2)
-{
-       m_Root.ForEach(lpfn, 0, pExtra1, pExtra2);
-}
-
-template <typename keyType, typename ObjIDType>
-typename BTree<keyType, ObjIDType>::ObjectInfo *
-BTree<keyType, ObjIDType>::FirstThat(lpfnFirstThat2 lpfn, void *pExtra1)
-{
-       return m_Root.FirstThat(lpfn, 0, pExtra1);
-}
-
-template <typename keyType, typename ObjIDType>
-typename BTree<keyType, ObjIDType>::ObjectInfo *
-BTree<keyType, ObjIDType>::FirstThat(lpfnFirstThat3 lpfn, void *pExtra1, void *pExtra2)
-{
-       return m_Root.FirstThat(lpfn, 0, pExtra1, pExtra2);
-}
-
-template <typename keyType, typename ObjIDType>
-void BTree<keyType, ObjIDType>::Print(ostream &os){
-       m_Root.Print(os);
-}
-
-
-
-
-
-
-#endif
+#endif // __BTREE_H__
