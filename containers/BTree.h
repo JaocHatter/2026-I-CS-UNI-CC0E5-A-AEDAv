@@ -1,251 +1,252 @@
-#ifndef __BTREE_H__
-#define __BTREE_H__
+// btree.h
+
+#ifndef BTREE_H
+#define BTREE_H
 
 #include <iostream>
-#include <sstream>
+#include <tuple>
 #include <vector>
+#include <utility>
 #include <stdexcept>
 #include <shared_mutex>
 #include <mutex>
-#include <utility>
 #include "../types.h"
 #include "traits.h"
 #include "BTreePage.h"
 
-// BTree<Trait>: un solo param de template en lugar de BTree<keyType,ObjIDType>.
-// Trait (BTreeTrait) encapsula value_type, Comp y Order,
-// eliminando params redundantes y permitiendo reutilizar perfiles de árbol predefinidos.
+#define DEFAULT_BTREE_ORDER 3
+
+// BTree<Trait>: la version original era BTree<keyType, ObjIDType>. Ahora recibe un
+// solo parametro (Trait, ver BTreeTrait) que encapsula keyType, ObjIDType y Order.
 template <typename Trait>
-class BTree {
-public:
-    using value_type            = typename Trait::value_type;
-    using Comp                  = typename Trait::Comp;
-    static constexpr Size Order = Trait::Order;
-
-    using Page  = BTreePage<Trait>;
-    using Entry = typename Page::Entry;
-    using Node  = Page;
-
-    // Clase Iterator: permite usar BTree en range-based for y algoritmos STL.
-    // La versión de antes no tenía ningún iterador; solo era posible imprimir con Print().
-    // Implementación: pila de pares (página, índice) para recorrido inorden sin recursión.
-    class Iterator {
-        std::vector<std::pair<Page*, Size>> m_stack;
-        const BTree* m_owner = nullptr;
-
-        // Desciende por el hijo izquierdo de cada nodo acumulando niveles en la pila.
-        void pushPath(Page* page, Size idx) {
-            while (page && page->m_keyCount > 0) {
-                m_stack.push_back({page, idx});
-                page = page->m_subPages[idx];
-                idx = 0;
-            }
-        }
-
-    public:
-        Iterator() = default;
-        explicit Iterator(Page* root, const BTree* owner) : m_owner(owner) { pushPath(root, 0); }
-
-        // shared_lock: múltiples lectores concurrentes pueden desreferenciar sin bloquearse.
-        Entry& operator*() const {
-            std::shared_lock<std::shared_mutex> lock(m_owner->m_mtx);
-            return m_stack.back().first->m_keys[m_stack.back().second];
-        }
-
-        // Avanza al siguiente elemento en inorden: sube en la pila y baja por el hijo derecho.
-        Iterator& operator++() {
-            std::shared_lock<std::shared_mutex> lock(m_owner->m_mtx);
-            auto [page, idx] = m_stack.back();
-            m_stack.pop_back();
-
-            if (idx + 1 < page->m_keyCount)
-                m_stack.push_back({page, idx + 1});
-
-            Page* rightChild = page->m_subPages[idx + 1];
-            if (rightChild) pushPath(rightChild, 0);
-
-            return *this;
-        }
-
-        Flag operator==(const Iterator& o) const { return m_stack == o.m_stack; }
-        Flag operator!=(const Iterator& o) const { return !(*this == o); }
-    };
-
-    // begin/end const y non-const: necesarios para range-for sobre BTree const.
-    // shared_lock en begin() protege la lectura de m_pRoot en contexto concurrente.
-    Iterator begin()       { std::shared_lock<std::shared_mutex> lock(m_mtx); return Iterator(m_pRoot, this); }
-    Iterator end()         { return Iterator(); }
-    Iterator begin() const { std::shared_lock<std::shared_mutex> lock(m_mtx); return Iterator(m_pRoot, this); }
-    Iterator end()   const { return Iterator(); }
-
-private:
-    // m_pRoot es puntero en lugar de objeto valor (m_Root de antes).
-    // El puntero es necesario para implementar deepCopy en el copy constructor
-    // y std::exchange en el move constructor.
-    Page*  m_pRoot;
-    Level  m_height;
-    Flag   m_unique;
-    Size   m_numKeys;
-    // shared_mutex: permite lecturas concurrentes (shared_lock) y escrituras
-    // exclusivas (unique_lock). antes no tenía ninguna protección de concurrencia.
-    mutable std::shared_mutex m_mtx;
-
-    // deepCopy: copia recursiva de todo el árbol.
-    // Necesario para el copy constructor; antes carecía de él porque m_Root
-    // era un valor y se copiaba superficialmente (sin clonar los hijos en heap).
-    Page* deepCopy(Page* src) const {
-        if (!src) return nullptr;
-        auto* dst = new Page(src->m_maxKeys, src->m_unique);
-        dst->m_maxKeysForChilds = src->m_maxKeysForChilds;
-        dst->m_keyCount = src->m_keyCount;
-        dst->m_keys     = src->m_keys;
-        for (Size i = 0; i <= src->m_keyCount; ++i)
-            dst->m_subPages[i] = deepCopy(src->m_subPages[i]);
-        return dst;
-    }
+class BTree
+// this is the full version of the BTree
+{
+       using keyType   = typename Trait::value_type;
+       using ObjIDType = typename Trait::ObjIDType;
+       typedef CBTreePage<Trait> BTNode;            // useful shorthand
+       static constexpr Size m_OrderValue = Trait::Order;
 
 public:
-    explicit BTree(Flag unique = true)
-        : m_pRoot(new Page(2 * Order + 1, unique)), m_height(1), m_unique(unique), m_numKeys(0) {
-        m_pRoot->setMaxKeysForChilds(Order);
-    }
+       typedef typename BTNode::ObjectInfo ObjectInfo;
+       using Entry = ObjectInfo;   // alias usado por el Demo: BT::Entry
 
-    // Copy constructor: la versión de antes carecía de él.
-    // shared_lock en la fuente permite copiar mientras otros hilos leen el árbol origen.
-    BTree(const BTree& o) : m_pRoot(nullptr), m_height(1), m_unique(true), m_numKeys(0) {
-        std::shared_lock<std::shared_mutex> lock(o.m_mtx);
-        m_pRoot   = deepCopy(o.m_pRoot);
-        m_height  = o.m_height;
-        m_unique  = o.m_unique;
-        m_numKeys = o.m_numKeys;
-    }
+       // ----------------------------------------------------------------------
+       // Iterator inorden (recorrido sin recursion mediante una pila de
+       // (pagina, indice)). Se mantiene respecto del original, que no tenia
+       // ningun iterador (solo Print). Habilita el range-based for sobre BTree.
+       // ----------------------------------------------------------------------
+       class Iterator {
+              std::vector<std::pair<BTNode*, Size>> m_stack;
+              const BTree* m_owner = nullptr;
 
-    // Move constructor: transfiere la propiedad de m_pRoot sin copiar el árbol.
-    // std::exchange deja el origen en estado válido (nullptr/0) para su destrucción segura.
-    BTree(BTree&& o) noexcept : m_pRoot(nullptr), m_height(1), m_unique(true), m_numKeys(0) {
-        std::unique_lock<std::shared_mutex> lock(o.m_mtx);
-        m_pRoot   = std::exchange(o.m_pRoot, nullptr);
-        m_height  = std::exchange(o.m_height, 0);
-        m_unique  = o.m_unique;
-        m_numKeys = std::exchange(o.m_numKeys, 0);
-    }
+              void pushPath(BTNode* page, Size idx) {
+                     while (page && page->m_KeyCount > 0) {
+                            m_stack.push_back({page, idx});
+                            page = page->m_SubPages[idx];
+                            idx = 0;
+                     }
+              }
+       public:
+              Iterator() = default;
+              explicit Iterator(BTNode* root, const BTree* owner) : m_owner(owner) { pushPath(root, 0); }
 
-    BTree& operator=(const BTree& o) {
-        if (this != &o) {
-            std::unique_lock<std::shared_mutex> lk(m_mtx);
-            std::shared_lock<std::shared_mutex> lo(o.m_mtx);
-            delete m_pRoot;
-            m_pRoot   = deepCopy(o.m_pRoot);
-            m_height  = o.m_height;
-            m_unique  = o.m_unique;
-            m_numKeys = o.m_numKeys;
-        }
-        return *this;
-    }
+              ObjectInfo& operator*() const {
+                     std::shared_lock<std::shared_mutex> lock(m_owner->m_mtx);
+                     return m_stack.back().first->m_Keys[m_stack.back().second];
+              }
+              Iterator& operator++() {
+                     std::shared_lock<std::shared_mutex> lock(m_owner->m_mtx);
+                     auto [page, idx] = m_stack.back();
+                     m_stack.pop_back();
+                     if (idx + 1 < (Size)page->m_KeyCount)
+                            m_stack.push_back({page, idx + 1});
+                     BTNode* rightChild = page->m_SubPages[idx + 1];
+                     if (rightChild) pushPath(rightChild, 0);
+                     return *this;
+              }
+              bool operator==(const Iterator& o) const { return m_stack == o.m_stack; }
+              bool operator!=(const Iterator& o) const { return !(*this == o); }
+       };
 
-    BTree& operator=(BTree&& o) noexcept {
-        if (this != &o) {
-            std::unique_lock<std::shared_mutex> lk(m_mtx), lo(o.m_mtx);
-            delete m_pRoot;
-            m_pRoot   = std::exchange(o.m_pRoot, nullptr);
-            m_height  = std::exchange(o.m_height, 0);
-            m_unique  = o.m_unique;
-            m_numKeys = std::exchange(o.m_numKeys, 0);
-        }
-        return *this;
-    }
+       // shared_lock en begin(): protege la lectura de m_pRoot en contexto concurrente.
+       Iterator begin()       { std::shared_lock<std::shared_mutex> lock(m_mtx); return Iterator(m_pRoot, this); }
+       Iterator end()         { return Iterator(); }
+       Iterator begin() const { std::shared_lock<std::shared_mutex> lock(m_mtx); return Iterator(m_pRoot, this); }
+       Iterator end()   const { return Iterator(); }
 
-    ~BTree() { delete m_pRoot; }
+public:
+       BTree(bool unique = true);
+       // Copy / Move: el original no los tenia (m_Root era un objeto valor y se
+       // copiaba superficialmente). Ahora m_pRoot es puntero y se clona en profundidad.
+       BTree(const BTree& o);
+       BTree(BTree&& o) noexcept;
+       BTree& operator=(const BTree& o);
+       BTree& operator=(BTree&& o) noexcept;
+       ~BTree();
 
-    // unique_lock en insert/remove: garantiza acceso exclusivo durante la modificación.
-    Flag insert(const value_type& key, Ref ref) {
-        std::unique_lock<std::shared_mutex> lock(m_mtx);
-        auto error = m_pRoot->insert(key, ref);
-        if (error == bt_ErrorCode::duplicate) return false;
-        ++m_numKeys;
-        if (error == bt_ErrorCode::overflow) { m_pRoot->splitRoot(); ++m_height; }
-        return true;
-    }
+       bool                            insert(const keyType &key, const ObjIDType ObjID);
+       // search / remove devuelven (clave, ObjID) en un tuple y lanzan excepcion si
+       // no existe. El original devolvia ObjIDType(-1) como centinela (invalido si el
+       // ObjID no es numerico o si -1 es un ID legitimo).
+       std::tuple<keyType, ObjIDType>  search(const keyType &key) const;
+       std::tuple<keyType, ObjIDType>  remove(const keyType &key);
 
-    // remove retorna tuple<value_type,Ref> y lanza excepción si no encuentra.
-    // antes retornaba bool con la clave perdida; no había forma de obtener el valor
-    // eliminado. El centinela -1 era inválido si ObjID era no numérico o si -1 era válido.
-    std::tuple<value_type, Ref> remove(const value_type& key) {
-        std::unique_lock<std::shared_mutex> lock(m_mtx);
-        value_type outValue{}; Ref outRef{};
-        auto error = m_pRoot->remove(key, outValue, outRef);
-        if (error == bt_ErrorCode::notFound)
-            throw std::runtime_error("BTree::remove - clave no encontrada");
-        --m_numKeys;
-        if (error == bt_ErrorCode::rootMerged) --m_height;
-        return {outValue, outRef};
-    }
+       Size            size()   const { std::shared_lock<std::shared_mutex> lock(m_mtx); return m_NumKeys; }
+       Size            height() const { std::shared_lock<std::shared_mutex> lock(m_mtx); return m_Height; }
+       Size            order()  const { return m_OrderValue; }
 
-    // search retorna tuple<value_type,Ref> y lanza excepción si no encuentra.
-    // antes retornaba ObjIDType(-1) como centinela, lo cual es incorrecto cuando
-    // ObjIDType no es numérico o cuando -1 es un ID legítimo.
-    std::tuple<value_type, Ref> search(const value_type& key) const {
-        std::shared_lock<std::shared_mutex> lock(m_mtx);
-        value_type outValue{}; Ref outRef{};
-        if (!m_pRoot->search(key, outValue, outRef))
-            throw std::runtime_error("BTree::search - clave no encontrada");
-        return {outValue, outRef};
-    }
+       void            Print(std::ostream &os) const {
+              std::shared_lock<std::shared_mutex> lock(m_mtx);
+              if (m_pRoot) m_pRoot->Print(os);
+       }
 
-    Size  size()   const { std::shared_lock<std::shared_mutex> lock(m_mtx); return m_numKeys; }
-    Level height() const { std::shared_lock<std::shared_mutex> lock(m_mtx); return m_height; }
-    Size  order()  const { return Order; }
+       // ForEach / FirstThat variadic: delegan en la pagina raiz bajo shared_lock.
+       template <typename Func, typename... Args>
+       void ForEach(Func func, Args&&... args) {
+              std::shared_lock<std::shared_mutex> lock(m_mtx);
+              if (m_pRoot) m_pRoot->ForEach(0, func, std::forward<Args>(args)...);
+       }
+       template <typename Func, typename... Args>
+       ObjectInfo* FirstThat(Func func, Args&&... args) {
+              std::shared_lock<std::shared_mutex> lock(m_mtx);
+              return m_pRoot ? m_pRoot->FirstThat(0, func, std::forward<Args>(args)...) : nullptr;
+       }
 
-    // forEach / firstThat / forEachPage delegan al iterador de página con shared_lock.
-    template <typename Func, typename... Args>
-    void forEach(Func func, Args&&... args) {
-        std::shared_lock<std::shared_mutex> lock(m_mtx);
-        m_pRoot->forEach(0, func, std::forward<Args>(args)...);
-    }
+protected:
+       BTNode *m_pRoot;   // puntero (antes objeto valor m_Root) para permitir deepCopy/move
+       Size    m_Height;  // height of tree
+       Size    m_NumKeys; // number of keys
+       bool    m_Unique;  // Accept the elements only once ?
+       // shared_mutex: lecturas concurrentes (shared_lock) y escrituras exclusivas
+       // (unique_lock). El original no tenia ninguna proteccion de concurrencia.
+       mutable std::shared_mutex m_mtx;
 
-    template <typename Func, typename... Args>
-    Entry* firstThat(Func func, Args&&... args) {
-        std::shared_lock<std::shared_mutex> lock(m_mtx);
-        return m_pRoot->firstThat(0, func, std::forward<Args>(args)...);
-    }
-
-    template <typename Func, typename... Args>
-    void forEachPage(Func func, Args&&... args) {
-        std::shared_lock<std::shared_mutex> lock(m_mtx);
-        m_pRoot->forEachPage(0, func, std::forward<Args>(args)...);
-    }
-
-    // toString / operator<< / operator>>: serialización del árbol como texto.
-    // antes solo tenía Print(ostream&) que imprimía pero no permitía reconstruir.
-    // El formato "[( dato:ref ),...]" es legible y reversible con operator>>.
-    std::string toString() const {
-        std::ostringstream oss;
-        oss << "[";
-        Flag first = true;
-        for (const auto& e : *this) {
-            if (!first) oss << ",";
-            oss << "(" << e << ")";
-            first = false;
-        }
-        oss << "]";
-        return oss.str();
-    }
-
-    friend std::ostream& operator<<(std::ostream& os, const BTree& t) {
-        return os << t.toString();
-    }
-
-    // Lee el formato producido por operator<< y re-inserta cada entrada en el árbol.
-    friend std::istream& operator>>(std::istream& is, BTree& t) {
-        Token ch;
-        if (!(is >> ch) || ch != '[') { is.clear(std::ios_base::failbit); return is; }
-        Entry e; Token paren;
-        while (is >> ch && ch != ']')
-            if (ch == '(')
-                if (is >> e >> paren)
-                    t.insert(e.m_data, e.m_ref);
-        return is;
-    }
+       BTNode* deepCopy(BTNode* src) const;
 };
 
-#endif // __BTREE_H__
+template <typename Trait>
+typename BTree<Trait>::BTNode* BTree<Trait>::deepCopy(BTNode* src) const
+{
+       if (!src) return nullptr;
+       BTNode* dst = new BTNode(src->m_MaxKeys, src->m_Unique);
+       dst->m_MaxKeysForChilds = src->m_MaxKeysForChilds;
+       dst->m_KeyCount = src->m_KeyCount;
+       dst->m_Keys     = src->m_Keys;
+       for (int i = 0; i <= src->m_KeyCount; ++i)
+              dst->m_SubPages[i] = deepCopy(src->m_SubPages[i]);
+       return dst;
+}
+
+template <typename Trait>
+BTree<Trait>::BTree(bool unique)
+                               : m_pRoot(new BTNode(2 * Trait::Order + 1, unique)),
+                                 m_Height(1),
+                                 m_NumKeys(0),
+                                 m_Unique(unique)
+{
+       m_pRoot->SetMaxKeysForChilds(Trait::Order);
+}
+
+template <typename Trait>
+BTree<Trait>::BTree(const BTree& o)
+       : m_pRoot(nullptr), m_Height(1), m_NumKeys(0), m_Unique(true)
+{
+       std::shared_lock<std::shared_mutex> lock(o.m_mtx);
+       m_pRoot   = deepCopy(o.m_pRoot);
+       m_Height  = o.m_Height;
+       m_NumKeys = o.m_NumKeys;
+       m_Unique  = o.m_Unique;
+}
+
+template <typename Trait>
+BTree<Trait>::BTree(BTree&& o) noexcept
+       : m_pRoot(nullptr), m_Height(1), m_NumKeys(0), m_Unique(true)
+{
+       std::unique_lock<std::shared_mutex> lock(o.m_mtx);
+       m_pRoot   = std::exchange(o.m_pRoot, nullptr);
+       m_Height  = std::exchange(o.m_Height, 0);
+       m_NumKeys = std::exchange(o.m_NumKeys, 0);
+       m_Unique  = o.m_Unique;
+}
+
+template <typename Trait>
+BTree<Trait>& BTree<Trait>::operator=(const BTree& o)
+{
+       if (this != &o) {
+              std::unique_lock<std::shared_mutex> lk(m_mtx);
+              std::shared_lock<std::shared_mutex> lo(o.m_mtx);
+              delete m_pRoot;
+              m_pRoot   = deepCopy(o.m_pRoot);
+              m_Height  = o.m_Height;
+              m_NumKeys = o.m_NumKeys;
+              m_Unique  = o.m_Unique;
+       }
+       return *this;
+}
+
+template <typename Trait>
+BTree<Trait>& BTree<Trait>::operator=(BTree&& o) noexcept
+{
+       if (this != &o) {
+              std::unique_lock<std::shared_mutex> lk(m_mtx), lo(o.m_mtx);
+              delete m_pRoot;
+              m_pRoot   = std::exchange(o.m_pRoot, nullptr);
+              m_Height  = std::exchange(o.m_Height, 0);
+              m_NumKeys = std::exchange(o.m_NumKeys, 0);
+              m_Unique  = o.m_Unique;
+       }
+       return *this;
+}
+
+template <typename Trait>
+BTree<Trait>::~BTree()
+{
+       delete m_pRoot;
+}
+
+template <typename Trait>
+bool BTree<Trait>::insert(const keyType &key, const ObjIDType ObjID)
+{
+       std::unique_lock<std::shared_mutex> lock(m_mtx);
+       bt_ErrorCode error = m_pRoot->Insert(key, ObjID);
+       if( error == bt_duplicate )
+               return false;
+       m_NumKeys++;
+       if( error == bt_overflow )
+       {
+               m_pRoot->SplitRoot();
+               m_Height++;
+       }
+       return true;
+}
+
+template <typename Trait>
+std::tuple<typename BTree<Trait>::keyType, typename BTree<Trait>::ObjIDType>
+BTree<Trait>::remove(const keyType &key)
+{
+       std::unique_lock<std::shared_mutex> lock(m_mtx);
+       keyType   outKey{};
+       ObjIDType outID{};
+       bt_ErrorCode error = m_pRoot->Remove(key, outKey, outID);
+       if( error == bt_nofound )
+               throw std::runtime_error("BTree::remove - clave no encontrada");
+       m_NumKeys--;
+       if( error == bt_rootmerged )
+               m_Height--;
+       return { outKey, outID };
+}
+
+template <typename Trait>
+std::tuple<typename BTree<Trait>::keyType, typename BTree<Trait>::ObjIDType>
+BTree<Trait>::search(const keyType &key) const
+{
+       std::shared_lock<std::shared_mutex> lock(m_mtx);
+       keyType   outKey{};
+       ObjIDType outID{};
+       if( !m_pRoot->Search(key, outKey, outID) )
+               throw std::runtime_error("BTree::search - clave no encontrada");
+       return { outKey, outID };
+}
+
+#endif

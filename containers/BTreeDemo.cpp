@@ -1,7 +1,8 @@
 #include <iostream>
-#include <sstream>
+#include <string>
 #include <thread>
 #include <vector>
+#include <cctype>
 #include "../types.h"
 #include "BTree.h"
 #include "traits.h"
@@ -25,6 +26,13 @@ struct Insertador {
     }
 };
 
+// Devuelve las claves del arbol en orden, en una sola linea (usa el iterador inorden).
+static string clavesEnOrden(BT& t) {
+    string s;
+    for (auto& e : t) s += e.key;
+    return s;
+}
+
 void DemoBTree() {
     // --- insert ---
     cout << "\n[insert]\n";
@@ -33,11 +41,11 @@ void DemoBTree() {
         arbol.insert(keys1[idx], Ref(idx * 3 + 1));
     cout << "  size=" << arbol.size() << "  height=" << arbol.height() << "  order=" << arbol.order() << "\n";
 
-    // --- search ---
+    // --- search (API: tuple + excepcion) ---
     cout << "\n[search]\n";
     try {
-        auto [valor, referencia] = arbol.search('Z');
-        cout << "  search('Z') -> encontrado  valor=" << valor << "  ref=" << referencia << "\n";
+        auto [clave, id] = arbol.search('Z');
+        cout << "  search('Z') -> encontrado  key=" << clave << "  ObjID=" << id << "\n";
     } catch (const runtime_error& ex) {
         cout << "  search('Z') -> " << ex.what() << "\n";
     }
@@ -47,64 +55,71 @@ void DemoBTree() {
         cout << "  search('@') -> " << ex.what() << "\n";
     }
 
+    // --- ForEach variadic (lambda + argumento extra por referencia) ---
+    cout << "\n[ForEach variadic - contar claves por nivel]\n";
+    vector<int> porNivel(arbol.height() + 1, 0);
+    arbol.ForEach([](BT::Entry& info, int level, vector<int>& acum) {
+        if (level < (int)acum.size()) acum[level]++;
+    }, porNivel);
+    for (size_t lvl = 0; lvl < porNivel.size(); ++lvl)
+        cout << "  nivel " << lvl << ": " << porNivel[lvl] << " claves\n";
+
+    // --- FirstThat variadic (predicado + argumento extra) ---
+    cout << "\n[FirstThat variadic - primera clave > umbral]\n";
+    KeyType umbral = 'W';
+    BT::Entry* hallado = arbol.FirstThat(
+        [](BT::Entry& info, int /*level*/, KeyType u) { return info.key > u; },
+        umbral);
+    if (hallado) cout << "  primera clave > '" << umbral << "' = '" << hallado->key
+                      << "'  (ObjID=" << hallado->ObjID << ")\n";
+    else         cout << "  ninguna clave > '" << umbral << "'\n";
+
     // --- conteo con iterador ---
     cout << "\n[conteo de digitos con iterador]\n";
     Size cantDigitos = 0;
     for (auto& entrada : arbol)
-        if (isdigit((Byte)entrada.m_data)) ++cantDigitos;
+        if (isdigit((Byte)entrada.key)) ++cantDigitos;
     cout << "  digitos en el arbol: " << cantDigitos << "\n";
 
     // --- busqueda con iterador ---
     cout << "\n[busqueda de clave 'N' con iterador]\n";
     BT::Entry* encontrado = nullptr;
     for (auto& entrada : arbol)
-        if (entrada.m_data == 'N') { encontrado = &entrada; break; }
+        if (entrada.key == 'N') { encontrado = &entrada; break; }
     cout << "  busqueda('N') -> " << (encontrado ? "encontrado" : "no encontrado");
-    if (encontrado) cout << " ref=" << encontrado->m_ref;
+    if (encontrado) cout << " ObjID=" << encontrado->ObjID;
     cout << "\n";
 
-    // --- remove ---
+    // --- remove (API: tuple + excepcion) ---
     cout << "\n[remove]\n";
     Size tamAntes = arbol.size();
-    auto [claveEliminada, refEliminada] = arbol.remove('P');
-    cout << "  remove('P') -> valor=" << claveEliminada << " ref=" << refEliminada
+    auto [claveEliminada, idEliminado] = arbol.remove('P');
+    cout << "  remove('P') -> key=" << claveEliminada << " ObjID=" << idEliminado
          << "  size antes=" << tamAntes << "  size despues=" << arbol.size() << "\n";
 
     // --- iterador inorder ---
     cout << "\n[for (auto& e : arbol) - iterador inorder]\n";
-    string secuenciaOrdenada;
-    for (auto& entrada : arbol) secuenciaOrdenada += entrada.m_data;
-    cout << "  claves en orden: " << secuenciaOrdenada << "\n";
+    cout << "  claves en orden: " << clavesEnOrden(arbol) << "\n";
 
-    // --- useCount ---
-    cout << "\n[useCount() - contador de accesos]\n";
+    // --- UseCounter ---
+    cout << "\n[GetUseCounter() - contador de accesos]\n";
     arbol.search('Q'); arbol.search('Q');
     arbol.search('r');
     for (auto& entrada : arbol)
-        if (entrada.m_data == 'Q' || entrada.m_data == 'r')
-            cout << "  '" << entrada.m_data << "' useCount=" << entrada.useCount() << "\n";
+        if (entrada.key == 'Q' || entrada.key == 'r')
+            cout << "  '" << entrada.key << "' UseCounter=" << entrada.GetUseCounter() << "\n";
 
-    // --- serialización ---
-    cout << "\n[operator<< / operator>>]\n";
-    ostringstream flujoSalida;
-    flujoSalida << arbol;
-    cout << "  Serializado : " << flujoSalida.str() << "\n";
-    BT arbol2;
-    istringstream flujoEntrada(flujoSalida.str());
-    flujoEntrada >> arbol2;
-    cout << "  Deserializado: " << arbol2 << "\n";
-
-    // --- copy constructor ---
+    // --- copy constructor (Memoria) ---
     cout << "\n[Copy constructor]\n";
     BT clon(arbol);
     clon.insert('$', 777);
-    cout << "  Original : size=" << arbol.size() << "  " << arbol << "\n";
-    cout << "  Clon     : size=" << clon.size()  << "  " << clon  << "\n";
+    cout << "  Original : size=" << arbol.size() << "  " << clavesEnOrden(arbol) << "\n";
+    cout << "  Clon     : size=" << clon.size()  << "  " << clavesEnOrden(clon)  << "\n";
 
-    // --- move constructor ---
+    // --- move constructor (Memoria) ---
     cout << "\n[Move constructor]\n";
     BT trasladado(move(clon));
-    cout << "  Trasladado      : size=" << trasladado.size() << "  " << trasladado << "\n";
+    cout << "  Trasladado      : size=" << trasladado.size() << "  " << clavesEnOrden(trasladado) << "\n";
     cout << "  Fuente tras move: size=" << clon.size() << "\n";
 
     // --- concurrencia ---
