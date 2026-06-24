@@ -14,7 +14,7 @@ const char * keys2 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuv
 const char * keys3 = "DYZakHIUwxVJ203ejOP9Qc8AdtuEop1XvTRghSNbW567BfiCqrs4FGMyzKLlmn";
 
 using KeyType = char;
-using Trait   = BTreeTrait<KeyType, 3>;
+using Trait   = BTreeTrait<KeyType>;
 using BT      = BTree<Trait>;
 
 struct Insertador {
@@ -36,7 +36,7 @@ static string clavesEnOrden(BT& t) {
 void DemoBTree() {
     // --- insert ---
     cout << "\n[insert]\n";
-    BT arbol;
+    BT arbol(3);
     for (Size idx = 0; keys1[idx] != '\0'; ++idx)
         arbol.insert(keys1[idx], Ref(idx * 3 + 1));
     cout << "  size=" << arbol.size() << "  height=" << arbol.height() << "  order=" << arbol.order() << "\n";
@@ -124,7 +124,7 @@ void DemoBTree() {
 
     // --- concurrencia ---
     cout << "\n[Concurrencia]\n";
-    BT arbolConcurrente;
+    BT arbolConcurrente(3);
     const Size numHilos = 4;
     vector<thread> hilos;
     hilos.reserve(numHilos);

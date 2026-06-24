@@ -25,7 +25,6 @@ class BTree
        using keyType   = typename Trait::value_type;
        using ObjIDType = typename Trait::ObjIDType;
        typedef CBTreePage<Trait> BTNode;            // useful shorthand
-       static constexpr Size m_OrderValue = Trait::Order;
 
 public:
        typedef typename BTNode::ObjectInfo ObjectInfo;
@@ -76,7 +75,7 @@ public:
        Iterator end()   const { return Iterator(); }
 
 public:
-       BTree(bool unique = true);
+       BTree(Size order = DEFAULT_BTREE_ORDER, bool unique = true);
        // Copy / Move: el original no los tenia (m_Root era un objeto valor y se
        // copiaba superficialmente). Ahora m_pRoot es puntero y se clona en profundidad.
        BTree(const BTree& o);
@@ -94,7 +93,7 @@ public:
 
        Size            size()   const { std::shared_lock<std::shared_mutex> lock(m_mtx); return m_NumKeys; }
        Size            height() const { std::shared_lock<std::shared_mutex> lock(m_mtx); return m_Height; }
-       Size            order()  const { return m_OrderValue; }
+       Size            order()  const { return m_Order; }
 
        void            Print(std::ostream &os) const {
               std::shared_lock<std::shared_mutex> lock(m_mtx);
@@ -117,6 +116,7 @@ protected:
        BTNode *m_pRoot;   // puntero (antes objeto valor m_Root) para permitir deepCopy/move
        Size    m_Height;  // height of tree
        Size    m_NumKeys; // number of keys
+       Size    m_Order;   // order of tree (runtime, like the original)
        bool    m_Unique;  // Accept the elements only once ?
        // shared_mutex: lecturas concurrentes (shared_lock) y escrituras exclusivas
        // (unique_lock). El original no tenia ninguna proteccion de concurrencia.
@@ -139,34 +139,37 @@ typename BTree<Trait>::BTNode* BTree<Trait>::deepCopy(BTNode* src) const
 }
 
 template <typename Trait>
-BTree<Trait>::BTree(bool unique)
-                               : m_pRoot(new BTNode(2 * Trait::Order + 1, unique)),
+BTree<Trait>::BTree(Size order, bool unique)
+                               : m_pRoot(new BTNode(2 * order + 1, unique)),
                                  m_Height(1),
                                  m_NumKeys(0),
+                                 m_Order(order),
                                  m_Unique(unique)
 {
-       m_pRoot->SetMaxKeysForChilds(Trait::Order);
+       m_pRoot->SetMaxKeysForChilds(order);
 }
 
 template <typename Trait>
 BTree<Trait>::BTree(const BTree& o)
-       : m_pRoot(nullptr), m_Height(1), m_NumKeys(0), m_Unique(true)
+       : m_pRoot(nullptr), m_Height(1), m_NumKeys(0), m_Order(DEFAULT_BTREE_ORDER), m_Unique(true)
 {
        std::shared_lock<std::shared_mutex> lock(o.m_mtx);
        m_pRoot   = deepCopy(o.m_pRoot);
        m_Height  = o.m_Height;
        m_NumKeys = o.m_NumKeys;
+       m_Order   = o.m_Order;
        m_Unique  = o.m_Unique;
 }
 
 template <typename Trait>
 BTree<Trait>::BTree(BTree&& o) noexcept
-       : m_pRoot(nullptr), m_Height(1), m_NumKeys(0), m_Unique(true)
+       : m_pRoot(nullptr), m_Height(1), m_NumKeys(0), m_Order(DEFAULT_BTREE_ORDER), m_Unique(true)
 {
        std::unique_lock<std::shared_mutex> lock(o.m_mtx);
        m_pRoot   = std::exchange(o.m_pRoot, nullptr);
        m_Height  = std::exchange(o.m_Height, 0);
        m_NumKeys = std::exchange(o.m_NumKeys, 0);
+       m_Order   = o.m_Order;
        m_Unique  = o.m_Unique;
 }
 
@@ -180,6 +183,7 @@ BTree<Trait>& BTree<Trait>::operator=(const BTree& o)
               m_pRoot   = deepCopy(o.m_pRoot);
               m_Height  = o.m_Height;
               m_NumKeys = o.m_NumKeys;
+              m_Order   = o.m_Order;
               m_Unique  = o.m_Unique;
        }
        return *this;
@@ -194,6 +198,7 @@ BTree<Trait>& BTree<Trait>::operator=(BTree&& o) noexcept
               m_pRoot   = std::exchange(o.m_pRoot, nullptr);
               m_Height  = std::exchange(o.m_Height, 0);
               m_NumKeys = std::exchange(o.m_NumKeys, 0);
+              m_Order   = o.m_Order;
               m_Unique  = o.m_Unique;
        }
        return *this;

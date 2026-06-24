@@ -18,14 +18,12 @@ struct DescendingTrait : public BaseTrait<_Node, std::greater<typename _Node::va
 };
 
 // BTreeTrait: encapsula en un solo parametro de template el "perfil" del BTree:
-// el tipo de clave (value_type), el tipo de identificador del objeto (ObjIDType)
-// y el orden (Order). Reemplaza los parametros sueltos <keyType, ObjIDType> mas el
-// argumento de orden en tiempo de ejecucion que tenia el BTree original.
-template <typename _Value, Size _Order, typename _ObjID = Ref>
+// el tipo de clave (value_type) y el tipo de identificador del objeto (ObjIDType).
+// El orden se pasa en tiempo de ejecucion al constructor de BTree (igual que el original).
+template <typename _Value, typename _ObjID = Ref>
 struct BTreeTrait {
-    using value_type            = _Value;
-    using ObjIDType             = _ObjID;
-    static constexpr Size Order = _Order;
+    using value_type = _Value;
+    using ObjIDType  = _ObjID;
 };
 
 #endif // __TRAITS_H__
