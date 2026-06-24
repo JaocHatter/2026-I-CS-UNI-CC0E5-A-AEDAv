@@ -26,10 +26,11 @@ struct Insertador {
     }
 };
 
-// Devuelve las claves del arbol en orden, en una sola linea (usa el iterador inorden).
+// Devuelve las claves del arbol en orden, en una sola linea.
+// ForEach visita las claves en orden ascendente (subpagina izq, clave, subpagina der).
 static string clavesEnOrden(BT& t) {
     string s;
-    for (auto& e : t) s += e.key;
+    t.ForEach([](BT::Entry& e, int /*level*/, string& out) { out += e.key; }, s);
     return s;
 }
 
@@ -74,18 +75,19 @@ void DemoBTree() {
                       << "'  (ObjID=" << hallado->ObjID << ")\n";
     else         cout << "  ninguna clave > '" << umbral << "'\n";
 
-    // --- conteo con iterador ---
-    cout << "\n[conteo de digitos con iterador]\n";
+    // --- conteo con ForEach variadic ---
+    cout << "\n[conteo de digitos con ForEach]\n";
     Size cantDigitos = 0;
-    for (auto& entrada : arbol)
-        if (isdigit((Byte)entrada.key)) ++cantDigitos;
+    arbol.ForEach([](BT::Entry& info, int /*level*/, Size& cont) {
+        if (isdigit((Byte)info.key)) ++cont;
+    }, cantDigitos);
     cout << "  digitos en el arbol: " << cantDigitos << "\n";
 
-    // --- busqueda con iterador ---
-    cout << "\n[busqueda de clave 'N' con iterador]\n";
-    BT::Entry* encontrado = nullptr;
-    for (auto& entrada : arbol)
-        if (entrada.key == 'N') { encontrado = &entrada; break; }
+    // --- busqueda con FirstThat variadic ---
+    cout << "\n[busqueda de clave 'N' con FirstThat]\n";
+    BT::Entry* encontrado = arbol.FirstThat(
+        [](BT::Entry& info, int /*level*/, KeyType objetivo) { return info.key == objetivo; },
+        KeyType('N'));
     cout << "  busqueda('N') -> " << (encontrado ? "encontrado" : "no encontrado");
     if (encontrado) cout << " ObjID=" << encontrado->ObjID;
     cout << "\n";
@@ -97,30 +99,18 @@ void DemoBTree() {
     cout << "  remove('P') -> key=" << claveEliminada << " ObjID=" << idEliminado
          << "  size antes=" << tamAntes << "  size despues=" << arbol.size() << "\n";
 
-    // --- iterador inorder ---
-    cout << "\n[for (auto& e : arbol) - iterador inorder]\n";
+    // --- recorrido en orden (ForEach) ---
+    cout << "\n[recorrido en orden con ForEach]\n";
     cout << "  claves en orden: " << clavesEnOrden(arbol) << "\n";
 
     // --- UseCounter ---
     cout << "\n[GetUseCounter() - contador de accesos]\n";
     arbol.search('Q'); arbol.search('Q');
     arbol.search('r');
-    for (auto& entrada : arbol)
-        if (entrada.key == 'Q' || entrada.key == 'r')
-            cout << "  '" << entrada.key << "' UseCounter=" << entrada.GetUseCounter() << "\n";
-
-    // --- copy constructor (Memoria) ---
-    cout << "\n[Copy constructor]\n";
-    BT clon(arbol);
-    clon.insert('$', 777);
-    cout << "  Original : size=" << arbol.size() << "  " << clavesEnOrden(arbol) << "\n";
-    cout << "  Clon     : size=" << clon.size()  << "  " << clavesEnOrden(clon)  << "\n";
-
-    // --- move constructor (Memoria) ---
-    cout << "\n[Move constructor]\n";
-    BT trasladado(move(clon));
-    cout << "  Trasladado      : size=" << trasladado.size() << "  " << clavesEnOrden(trasladado) << "\n";
-    cout << "  Fuente tras move: size=" << clon.size() << "\n";
+    arbol.ForEach([](BT::Entry& info, int /*level*/) {
+        if (info.key == 'Q' || info.key == 'r')
+            cout << "  '" << info.key << "' UseCounter=" << info.GetUseCounter() << "\n";
+    });
 
     // --- concurrencia ---
     cout << "\n[Concurrencia]\n";
