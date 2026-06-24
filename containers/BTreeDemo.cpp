@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string>
 #include "BTree.h"
+#include "traits.h"
+#include "../types.h"
 
 //const char * keys="CDAMPIWNBKEHOLJYQZFXVRTSGU";
 const char * keys1 = "D1XJ2xTg8zKL9AhijOPQcEowRSp0NbW567BUfCqrs4FdtYZakHIuvGV3eMylmn";
@@ -10,41 +12,104 @@ const char * keys2 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuv
 const char * keys3 = "DYZakHIUwxVJ203ejOP9Qc8AdtuEop1XvTRghSNbW567BfiCqrs4FGMyzKLlmn";
 
 const int BTreeSize = 3;
-void main(int argc, char * argv[], char * envp[])
-{
-       int result, i;
-       BTree <char> bt (BTreeSize);
-       for (i = 0; keys1[i]; i++)
-       {
-               //cout<<"Inserting "<<keys1[i]<<endl;
-               result = bt.Insert(keys1[i], i*i);
-               //bt.Print(cout);
-       }
-       bt.Print(cout);
-       /*for (i = 0; keys2[i]; i++)
-       {
-               cout << "Searching " << keys2[i] << " ";
-               long ObjID = bt.Search(keys2[i]);
-               if( ObjID != -1 )
-                       cout << "Achei " << keys2[i] << " ID = " << ObjID << endl;
-               else
-                       cout <<"Nao achei!" << keys2[i] << endl;
-       }*/
-       /*cout.flush();
 
-       for (i = 0; keys3[i]; i++)
-       {
-               cout << "Removing " << keys3[i] << " ";
-               if( bt.Remove(keys3[i], -1) )
-                       cout << keys3[i] << " removido !" << endl;
-               else
-                       cout <<"Nao achei!" << keys3[i] << endl;
-               bt.Print(cout);
-       }
-       bt.Print(cout);
-       cout.flush();*/
-       return 1;
+void BTreeDemo()
+{
+    // ── 1. Ascendente ──────────────────────────────────────────
+    cout << "=== Ascendente (AscendingBTreeTrait<char>) ===" << endl;
+    {
+        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        for(int i = 0; keys1[i]; i++)
+            bt.Insert(keys1[i], (Ref)(i*i));
+        bt.Print(cout);
+        cout << "Claves: " << bt.size() << "  Altura: " << bt.height() << "\n";
+    }
+
+    // ── 2. Descendente ─────────────────────────────────────────
+    cout << "\n=== Descendente (DescendingBTreeTrait<char>) ===" << endl;
+    {
+        BTree<DescendingBTreeTrait<char>> bt(BTreeSize);
+        for(int i = 0; keys1[i]; i++)
+            bt.Insert(keys1[i], (Ref)(i*i));
+        bt.Print(cout);
+        cout << "Claves: " << bt.size() << "  Altura: " << bt.height() << "\n";
+    }
+
+    // ── 3. Search (keys2: todos los posibles) ──────────────────
+    cout << "\n=== Search ===" << endl;
+    {
+        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        for(int i = 0; keys1[i]; i++)
+            bt.Insert(keys1[i], (Ref)(i*i));
+
+        for(int i = 0; keys2[i]; i++) {
+            Ref ObjID = bt.Search(keys2[i]);
+            if( ObjID != -1 )
+                cout << "Encontrado " << keys2[i] << " ID = " << ObjID << "\n";
+            else
+                cout << "No encontrado: " << keys2[i] << "\n";
+        }
+    }
+
+    // ── 4. Remove (keys3: orden distinto) ──────────────────────
+    cout << "\n=== Remove ===" << endl;
+    {
+        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        for(int i = 0; keys1[i]; i++)
+            bt.Insert(keys1[i], (Ref)(i*i));
+
+        for(int i = 0; keys3[i]; i++) {
+            cout << "Removing " << keys3[i] << " ";
+            if( bt.Remove(keys3[i], -1) )
+                cout << keys3[i] << " removido!\n";
+            else
+                cout << "No encontrado: " << keys3[i] << "\n";
+        }
+        cout << "Arbol tras removes:\n";
+        bt.Print(cout);
+    }
+
+    // ── 5. ForEach variadic: contar mayusculas ──────────────────
+    cout << "\n=== ForEach variadic: mayusculas ===" << endl;
+    {
+        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        for(int i = 0; keys1[i]; i++)
+            bt.Insert(keys1[i], (Ref)(i*i));
+
+        T1 count = 0;
+        bt.ForEach(
+            [](auto &info, int /*level*/, T1 &cnt) {
+                if(info.key >= 'A' && info.key <= 'Z') {
+                    cout << info.key << " ";
+                    cnt++;
+                }
+            },
+            count
+        );
+        cout << "\nMayusculas: " << count << "\n";
+    }
+
+    // ── 6. FirstThat variadic: primera clave > 'M' ─────────────
+    cout << "\n=== FirstThat variadic: primera clave > 'M' ===" << endl;
+    {
+        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        for(int i = 0; keys1[i]; i++)
+            bt.Insert(keys1[i], (Ref)(i*i));
+
+        auto *result = bt.FirstThat(
+            [](auto &info, int /*level*/, char umbral) -> bool {
+                return info.key > umbral;
+            },
+            'M'
+        );
+        if(result)
+            cout << "Primera clave > 'M': '" << result->key
+                 << "'  ID=" << result->ObjID << "\n";
+        else
+            cout << "No encontrada.\n";
+    }
 }
+
 
 
 
