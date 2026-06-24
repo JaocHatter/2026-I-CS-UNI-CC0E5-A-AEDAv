@@ -56,7 +56,7 @@ class CBTreePage
        bool            Search (const keyType &key, keyType &outKey, ObjIDType &outID);
        void            Print  (ostream &os);
 
-       // ForEach / FirstThat como VARIADIC TEMPLATES (Tasks.md).
+       // ForEach / FirstThat como VARIADIC TEMPLATES
        // Reemplazan los 4 typedefs de punteros a funcion C (lpfnForEach2/3,
        // lpfnFirstThat2/3) que cargaban estado mediante void*. Ahora aceptan
        // cualquier functor/lambda y reenvian argumentos extra con perfect forwarding.
