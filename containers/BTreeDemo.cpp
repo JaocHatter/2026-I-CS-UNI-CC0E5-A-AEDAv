@@ -21,7 +21,7 @@ void BTreeDemo()
         BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
-        bt.Print(cout);
+        cout << bt;
         cout << "Claves: " << bt.size() << "  Altura: " << bt.height() << "\n";
     }
 
@@ -31,7 +31,7 @@ void BTreeDemo()
         BTree<DescendingBTreeTrait<char>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
-        bt.Print(cout);
+        cout << bt;
         cout << "Claves: " << bt.size() << "  Altura: " << bt.height() << "\n";
     }
 
@@ -66,11 +66,11 @@ void BTreeDemo()
                 cout << "No encontrado: " << keys3[i] << "\n";
         }
         cout << "Arbol tras removes:\n";
-        bt.Print(cout);
+        cout << bt; //NO MUESTRA NADA DEBIDO A QUE KEY1 Y KEY3 TIENEN LOS MISMOS CARACTERES PERO EN DIFERENTE ORDEN
     }
 
     // ── 5. ForEach variadic: contar mayusculas ──────────────────
-    cout << "\n=== ForEach variadic: mayusculas ===" << endl;
+    cout << "\n=== ForEach: Contar Mayusculas ===" << endl;
     {
         BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
@@ -84,19 +84,19 @@ void BTreeDemo()
                     cnt++;
                 }
             },
-            count
-        );
+            count);
+
         cout << "\nMayusculas: " << count << "\n";
     }
 
     // ── 6. FirstThat variadic: primera clave > 'M' ─────────────
-    cout << "\n=== FirstThat variadic: primera clave > 'M' ===" << endl;
+    cout << "\n=== FirstThat pero usando ForEach ===" << endl;
     {
         BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
 
-        auto *result = bt.FirstThat(
+        auto *result = bt.ForEach(
             [](auto &info, int /*level*/, char umbral) -> bool {
                 return info.key > umbral;
             },

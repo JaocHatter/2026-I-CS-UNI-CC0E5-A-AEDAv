@@ -9,6 +9,9 @@
 #define CBTreePage_H
 #include <vector>
 #include <iostream>
+#include <type_traits>
+#include <functional>
+#include <utility>
 #include <assert.h>
 
 template <typename Trait>
@@ -64,14 +67,9 @@ class CBTreePage
        bt_ErrorCode    Insert (const keyType &key, const ObjIDType ObjID);
        bt_ErrorCode    Remove (const keyType &key, const ObjIDType ObjID);
        bool            Search (const keyType &key, ObjIDType &ObjID);
-       void            Print  (ostream &os);
-      
-       // Ahora aceptan varios argumentos, varidic
-       template <typename Func, typename... Args>
-       void ForEach(Func func, int level, Args&&... args);
 
-       template <typename Func, typename... Args>
-       ObjectInfo* FirstThat(Func func, int level, Args&&... args);
+       template <typename Func, typename... Args> 
+       auto ForEach(Func func, int level, Args&&... args) -> conditional_t<is_void_v<invoke_result_t<Func, ObjectInfo&, int, Args...>>, void, ObjectInfo*>;
 
 protected:
        int  m_MinKeys; // minimum number of keys in a node
@@ -82,6 +80,8 @@ protected:
        vector<ObjectInfo> m_Keys;
        vector<BTPage *>   m_SubPages;
        int  m_KeyCount;
+
+
        void  Create();
        void  Reset ();
        void  Destroy () {   Reset(); delete this;}
@@ -117,6 +117,7 @@ protected:
        int GetFreeCellsOnLeft(int pos);
        int GetFreeCellsOnRight(int pos);
 
+       
 private:
        bool SplitRoot();
        void SplitPageInto3(vector<ObjectInfo>   & tmpKeys,
@@ -521,45 +522,45 @@ void CBTreePage<Trait>::ForEachReverse(lpfnForEach2 lpfn, int level, void *pExtr
        }
 }*/
 
+// Deberemos declarar que tipo retorna de manera condicional
 template <typename Trait>
 template <typename Func, typename... Args>
-void CBTreePage<Trait>::ForEach(Func func, int level, Args&&... args)
-{
-       for( int i = 0 ; i < m_KeyCount ; i++)
-       {
-               if( m_SubPages[i] )
-                       m_SubPages[i]->ForEach(func, level+1, args...);
-               func(m_Keys[i], level, args...);
-       }
-       if( m_SubPages[m_KeyCount] )
-               m_SubPages[m_KeyCount]->ForEach(func, level+1, args...);
+auto CBTreePage<Trait>::ForEach(Func func, int level, Args&&... args) -> 
+conditional_t<is_void_v<invoke_result_t<Func, ObjectInfo&, int, Args...>>, void, ObjectInfo*>
+{       
+        // cargado previamente que retorna "Func", nada? o algun tipo
+        using result_t = invoke_result_t<Func, ObjectInfo&, int, Args...>;
+
+        for( int i = 0 ; i < m_KeyCount ; i++)
+        {
+                if( m_SubPages[i] ) {
+                        if constexpr(is_void_v<result_t>){
+                                m_SubPages[i]->ForEach(func, level+1, args...);
+                        }else{
+                                ObjectInfo* p = m_SubPages[i]->ForEach(func, level+1, args...);
+                                if (p) return p;
+                        }
+                }
+                if constexpr (is_void_v<result_t>){
+                        func(m_Keys[i], level, args...);
+                }else{
+                        if (func(m_Keys[i], level, args...))
+                                return &m_Keys[i];
+                }
+        }
+        if( m_SubPages[m_KeyCount] ) {
+                if constexpr(is_void_v<result_t>){
+                        m_SubPages[m_KeyCount]->ForEach(func, level+1, args...);
+                }else{
+                        ObjectInfo* p = m_SubPages[m_KeyCount]->ForEach(func, level+1, args...);
+                        if (p) return p;
+                }       
+        }
+
+        if constexpr (!is_void_v<result_t>)
+                return static_cast<ObjectInfo*>(nullptr);
 }
-
-
-template <typename Trait>
-template <typename Func, typename... Args>
-typename CBTreePage<Trait>::ObjectInfo *
-CBTreePage<Trait>::FirstThat(Func func,
-                                          int level, Args&&... args)
-{
-       for( int i = 0 ; i < m_KeyCount ; i++)
-       {
-               if( m_SubPages[i] ){
-                       ObjectInfo *p = m_SubPages[i]->FirstThat(func, level+1, args...);
-                       if( p )
-                               return p;
-               }
-               if( func(m_Keys[i], level, args...) )
-                       return &m_Keys[i];
-       }
-       if( m_SubPages[m_KeyCount] ){
-                ObjectInfo *p = m_SubPages[m_KeyCount]->FirstThat(func, level+1, args...);
-               if( p )
-                       return p;
-       }
-       return nullptr;
-}
-
+        
 
 template <typename Trait>
 bt_ErrorCode CBTreePage<Trait>::Remove(const keyType &key, const ObjIDType ObjID)
@@ -718,16 +719,6 @@ CBTreePage<Trait>::GetFirstObjectInfo()
        if( m_SubPages[0] )
                return m_SubPages[0]->GetFirstObjectInfo();
        return m_Keys[0];
-}
-
-// Deben eliminarlo e imprimir con un ForEach
-template <typename Trait>
-void CBTreePage<Trait>::Print(ostream &os)
-{
-    ForEach([](ObjectInfo &info, int level, ostream &os){
-        for(int i = 0; i < level; i++) os << "\t";
-        os << info.key << "->" << info.ObjID << "\n";
-    }, 0, os);   // os pasa como ostream& — sin cast
 }
 
 template <typename Trait>

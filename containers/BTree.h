@@ -4,6 +4,9 @@
 #define BTREE_H
 
 #include <iostream>
+#include <sstream>
+#include <mutex>
+#include <shared_mutex> 
 #include "BTreePage.h"
 
 #define DEFAULT_BTREE_ORDER 3
@@ -29,6 +32,8 @@ public:
        typedef typename BTNode::lpfnFirstThat3  lpfnFirstThat3;
        typedef typename BTNode::ObjectInfo      ObjectInfo;
        */
+protected:
+       mutable shared_mutex m_mtx;
 
 public:
        BTree(int order = DEFAULT_BTREE_ORDER, bool unique = true);
@@ -42,15 +47,30 @@ public:
        long            size()  { return m_NumKeys; }
        long            height() { return m_Height;      }
        long            GetOrder() { return m_Order;     }
+       
+       template <typename Func, typename... Args>
+       decltype(auto)       ForEach( Func func, Args&&... args );
 
-       void            Print (ostream &os);
-       
-       template <typename Func, typename... Args>
-       void            ForEach( Func func, Args&&... args );
-       
-       template <typename Func, typename... Args>
-       ObjectInfo*     FirstThat( Func func, Args&&... args );
-       //typedef               ObjectInfo iterator;
+       friend ostream& operator<<(ostream& os, BTree& bt) {
+              shared_lock<shared_mutex> lock(bt.m_mtx);
+              bt.ForEach([&os](auto& info, int level){
+                     for(int i = 0; i < level; i++){
+                            os << "\t";  // indenta por profundidad
+                     }
+                     os << info.key << " -> " << info.ObjID << "\n";
+              });
+              return os;
+       }
+
+       friend istream& operator>>(istream& is, BTree& bt){
+              unique_lock<shared_mutex> lock(bt.m_mtx);
+              keyType key;
+              long id = 0;
+              while (is >> key)
+                     // un id consecutivo por ahora
+                     bt.Insert(key, id++);
+              return is;
+       }
 
 protected:
        bool            m_Unique;  // Accept the elements only once ?
@@ -116,27 +136,10 @@ typename Trait::ObjIDType BTree<Trait>::Search (const keyType key)
 
 template <typename Trait>
 template <typename Func, typename... Args>
-void BTree<Trait>::ForEach(Func func, Args&&... args)
+decltype(auto) BTree<Trait>::ForEach(Func func, Args&&... args)
 {
-       m_Root.ForEach(func, 0, args...);
+       return m_Root.ForEach(func, 0, args...);
 }
-
-template <typename Trait>
-template <typename Func, typename... Args>
-typename BTree<Trait>::ObjectInfo *
-BTree<Trait>::FirstThat(Func func, Args&&... args)
-{
-       return m_Root.FirstThat(func, 0, args...);
-}
-
-template <typename Trait>
-void BTree<Trait>::Print(ostream &os){
-       m_Root.Print(os);
-}
-
-
-
-
 
 
 #endif
