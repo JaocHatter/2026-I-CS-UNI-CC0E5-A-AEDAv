@@ -8,18 +8,18 @@
 #include "../types.h"
 
 //const char * keys="CDAMPIWNBKEHOLJYQZFXVRTSGU";
-const char * keys1 = "D1XJ2xTg8zKL9AhijOPQcEowRSp0NbW567BUfCqrs4FdtYZakHIuvGV3eMylmn";
-const char * keys2 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const char * keys3 = "DYZakHIUwxVJ203ejOP9Qc8AdtuEop1XvTRghSNbW567BfiCqrs4FGMyzKLlmn";
+const T2 * keys1 = "D1XJ2xTg8zKL9AhijOPQcEowRSp0NbW567BUfCqrs4FdtYZakHIuvGV3eMylmn";
+const T2 * keys2 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const T2 * keys3 = "DYZakHIUwxVJ203ejOP9Qc8AdtuEop1XvTRghSNbW567BfiCqrs4FGMyzKLlmn";
 
 const int BTreeSize = 3;
 
 void BTreeDemo()
 {
     // ── 1. Ascendente ──────────────────────────────────────────
-    cout << "=== Ascendente (AscendingBTreeTrait<char>) ===" << endl;
+    cout << "=== Ascendente (AscendingBTreeTrait<T2>) ===" << endl;
     {
-        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        BTree<AscendingBTreeTrait<T2>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
         cout << bt;
@@ -27,9 +27,9 @@ void BTreeDemo()
     }
 
     // ── 2. Descendente ─────────────────────────────────────────
-    cout << "\n=== Descendente (DescendingBTreeTrait<char>) ===" << endl;
+    cout << "\n=== Descendente (DescendingBTreeTrait<T2>) ===" << endl;
     {
-        BTree<DescendingBTreeTrait<char>> bt(BTreeSize);
+        BTree<DescendingBTreeTrait<T2>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
         cout << bt;
@@ -39,7 +39,7 @@ void BTreeDemo()
     // ── 3. Search (keys2: todos los posibles) ──────────────────
     cout << "\n=== Search ===" << endl;
     {
-        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        BTree<AscendingBTreeTrait<T2>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
 
@@ -55,7 +55,7 @@ void BTreeDemo()
     // ── 4. Remove (keys3: orden distinto) ──────────────────────
     cout << "\n=== Remove ===" << endl;
     {
-        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        BTree<AscendingBTreeTrait<T2>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
 
@@ -73,7 +73,7 @@ void BTreeDemo()
     // ── 5. ForEach variadic: contar mayusculas ──────────────────
     cout << "\n=== ForEach: Contar Mayusculas ===" << endl;
     {
-        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        BTree<AscendingBTreeTrait<T2>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
 
@@ -93,12 +93,12 @@ void BTreeDemo()
     // ── 6. FirstThat variadic: primera clave > 'M' ─────────────
     cout << "\n=== FirstThat pero usando ForEach ===" << endl;
     {
-        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        BTree<AscendingBTreeTrait<T2>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
 
         auto *result = bt.ForEach(
-            [](auto &info, char umbral) -> bool {
+            [](auto &info, T2 umbral) -> bool {
                 return info.key > umbral;
             },
             'M'
@@ -112,7 +112,7 @@ void BTreeDemo()
 
     cout << "\n=== Insert mediante operador \'>>\' ===" << endl;
     {
-        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        BTree<AscendingBTreeTrait<T2>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++){
             std::istringstream iss("(A,10)(B,20)(C,30)(D,40)");
             iss >> bt;
@@ -127,12 +127,16 @@ void BTreeDemo()
 
     cout << "\n=== Iteradores forward / backward ===" << endl;
     {
-        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        BTree<AscendingBTreeTrait<T2>> bt(BTreeSize);
         for(int i = 0; keys1[i]; i++)
             bt.Insert(keys1[i], (Ref)(i*i));
 
         cout << "Forward (ascendente): ";
         bt.ForEach([](auto& info){ cout << info.key << " "; });
+        cout << "\n";
+
+        cout << "Backward (descendente): ";
+        bt.ReverseForEach([](auto& info){ cout << info.key << " "; });
         cout << "\n";
     }
 }
