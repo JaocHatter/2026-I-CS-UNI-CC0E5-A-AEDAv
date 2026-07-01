@@ -57,7 +57,7 @@ public:
                      for(int i = 0; i < level; i++){
                             os << "\t";  // indenta por profundidad
                      }
-                     os << info.key << " -> " << info.ObjID << "\n";
+                     os << "(" << info.key << " , " << info.ObjID << ")\n";
               });
               return os;
        }
@@ -65,10 +65,14 @@ public:
        friend istream& operator>>(istream& is, BTree& bt){
               unique_lock<shared_mutex> lock(bt.m_mtx);
               keyType key;
-              long id = 0;
-              while (is >> key)
-                     // un id consecutivo por ahora
-                     bt.Insert(key, id++);
+              ObjIDType id;
+              char ch;
+
+              while (is >> ch && ch == '('){
+                     is >> key >> ch;
+                     is >> id >> ch;
+                     bt.Insert(key, id);
+              }
               return is;
        }
 

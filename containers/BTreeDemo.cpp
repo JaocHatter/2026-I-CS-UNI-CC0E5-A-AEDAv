@@ -2,6 +2,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string>
+#include <sstream>
 #include "BTree.h"
 #include "traits.h"
 #include "../types.h"
@@ -107,6 +108,21 @@ void BTreeDemo()
                  << "'  ID=" << result->ObjID << "\n";
         else
             cout << "No encontrada.\n";
+    }
+
+    cout << "\n=== Insert mediante operador \'>>\' ===" << endl;
+    {
+        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        for(int i = 0; keys1[i]; i++){
+            std::istringstream iss("(A,10)(B,20)(C,30)(D,40)");
+            iss >> bt;
+            cout << bt;
+
+            cout << "Claves: " << bt.size() << "  Altura: " << bt.height() << "\n";
+            cout << "Search('B') = " << bt.Search('B') << "\n";
+        }
+
+        cout << bt;
     }
 }
 
