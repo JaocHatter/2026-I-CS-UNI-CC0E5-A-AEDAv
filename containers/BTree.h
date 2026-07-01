@@ -239,7 +239,7 @@ auto BTree<Trait>::ForEach(Func func, Args&&... args)
               }
        }
        if constexpr (!is_void_v<result_t>)
-              return static_cast<ObjectInfo*>(nullptr);
+              return nullptr;
 }
 
 template <typename Trait>
@@ -258,7 +258,7 @@ auto BTree<Trait>::ReverseForEach(Func func, Args&&... args)
               }
        }
        if constexpr (!is_void_v<result_t>)
-              return static_cast<ObjectInfo*>(nullptr);
+              return nullptr;
 }
 
 template <typename Trait>
