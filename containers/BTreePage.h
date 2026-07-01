@@ -17,6 +17,11 @@
 template <typename Trait>
 class BTree;
 
+template <typename TreeType> 
+class btree_iterator_base;              // NUEVO
+
+template <typename TreeType, bool IsForward> 
+class btree_iterator;
 
 using namespace std;
 enum bt_ErrorCode {bt_ok, bt_overflow, bt_underflow, bt_duplicate, bt_nofound, bt_rootmerged};
@@ -55,7 +60,14 @@ class CBTreePage
 
        // instancio el comparador
        Comp m_comp;
+       
        friend class BTree<Trait>;
+
+       template <typename TreeType> 
+       friend class btree_iterator_base;
+       
+       template <typename TreeType, bool IsForward> 
+       friend class btree_iterator;
 
        typedef CBTreePage<Trait>    BTPage;         // useful shorthand
        //typedef tagObjectInfo<Trait> ObjectInfo;

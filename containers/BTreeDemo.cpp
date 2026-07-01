@@ -124,6 +124,22 @@ void BTreeDemo()
 
         cout << bt;
     }
+
+    cout << "\n=== Iteradores forward / backward ===" << endl;
+    {
+        BTree<AscendingBTreeTrait<char>> bt(BTreeSize);
+        for(int i = 0; keys1[i]; i++)
+            bt.Insert(keys1[i], (Ref)(i*i));
+
+        cout << "Forward (ascendente): ";
+        for(auto it = bt.begin(); !(it == bt.end()); ++it)
+            cout << it->key << " ";
+        cout << "\n";
+
+        cout << "Backward (descendente): ";
+        bt.ReverseForEach([](auto& info){ cout << info.key << " "; });
+        cout << "\n";
+    }
 }
 
 
