@@ -128,18 +128,17 @@ public:
        long            GetOrder() { return m_Order;     }
 
        template <typename Func, typename... Args>
-       decltype(auto)       ForEach( Func func, Args&&... args );
+       auto ForEach( Func func, Args&&... args )
+       -> conditional_t<is_void_v<invoke_result_t<Func, ObjectInfo&, Args...>>, void, ObjectInfo*>;
 
        template <typename Func, typename... Args>
-       void   ReverseForEach(Func func, Args&&... args);
+       auto   ReverseForEach(Func func, Args&&... args)
+       -> conditional_t<is_void_v<invoke_result_t<Func, ObjectInfo&, Args...>>, void, ObjectInfo*>;
 
        friend ostream& operator<<(ostream& os, BTree& bt) {
               shared_lock<shared_mutex> lock(bt.m_mtx);
-              bt.ForEach([&os](auto& info, int level){
-                     for(int i = 0; i < level; i++){
-                            os << "\t";  // indenta por profundidad
-                     }
-                     os << "(" << info.key << " , " << info.ObjID << ")\n";
+              bt.ForEach([&os](auto& info){
+                     os << "(" << info.key << " , " << info.ObjID << ")";
               });
               return os;
        }
@@ -223,19 +222,43 @@ typename Trait::ObjIDType BTree<Trait>::Search (const keyType key)
        return ObjID;
 }
 
-
+// practicamente todo lo que hacia en BTreePage, el ForEach en BTreePage queda inutil
 template <typename Trait>
 template <typename Func, typename... Args>
-decltype(auto) BTree<Trait>::ForEach(Func func, Args&&... args)
+auto BTree<Trait>::ForEach(Func func, Args&&... args)
+-> conditional_t<is_void_v<invoke_result_t<Func, ObjectInfo&, Args...>>, void, ObjectInfo*>
 {
-       return m_Root.ForEach(func, 0, args...);
+       using result_t = invoke_result_t<Func, ObjectInfo&, Args...>;
+       for( auto it = begin(); it != end(); ++it )
+       {
+              if constexpr (is_void_v<result_t>) {
+                     func(*it, args...);
+              } else {
+                     if( func(*it, args...) )
+                            return &(*it);
+              }
+       }
+       if constexpr (!is_void_v<result_t>)
+              return static_cast<ObjectInfo*>(nullptr);
 }
 
 template <typename Trait>
 template <typename Func, typename... Args>
-void   BTree<Trait>::ReverseForEach(Func func, Args&&... args) {
-              unique_lock<shared_mutex> lock(m_mtx);
-              ::ForEach(rbegin(), rend(), func, std::forward<Args>(args)...);
+auto BTree<Trait>::ReverseForEach(Func func, Args&&... args)
+-> conditional_t<is_void_v<invoke_result_t<Func, ObjectInfo&, Args...>>, void, ObjectInfo*>
+{
+       using result_t = invoke_result_t<Func, ObjectInfo&, Args...>;
+       for( auto it = rbegin(); it != rend(); ++it )
+       {
+              if constexpr (is_void_v<result_t>) {
+                     func(*it, args...);
+              } else {
+                     if( func(*it, args...) )
+                            return &(*it);
+              }
+       }
+       if constexpr (!is_void_v<result_t>)
+              return static_cast<ObjectInfo*>(nullptr);
 }
 
 template <typename Trait>

@@ -79,7 +79,7 @@ void BTreeDemo()
 
         T1 count = 0;
         bt.ForEach(
-            [](auto &info, int /*level*/, T1 &cnt) {
+            [](auto &info, T1 &cnt) {
                 if(info.key >= 'A' && info.key <= 'Z') {
                     cout << info.key << " ";
                     cnt++;
@@ -98,7 +98,7 @@ void BTreeDemo()
             bt.Insert(keys1[i], (Ref)(i*i));
 
         auto *result = bt.ForEach(
-            [](auto &info, int /*level*/, char umbral) -> bool {
+            [](auto &info, char umbral) -> bool {
                 return info.key > umbral;
             },
             'M'
@@ -132,8 +132,7 @@ void BTreeDemo()
             bt.Insert(keys1[i], (Ref)(i*i));
 
         cout << "Forward (ascendente): ";
-        for(auto it = bt.begin(); !(it == bt.end()); ++it)
-            cout << it->key << " ";
+        bt.ForEach([](auto& info){ cout << info.key << " "; });
         cout << "\n";
 
         cout << "Backward (descendente): ";
