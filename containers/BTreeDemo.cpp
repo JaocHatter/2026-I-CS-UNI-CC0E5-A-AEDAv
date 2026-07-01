@@ -134,10 +134,6 @@ void BTreeDemo()
         cout << "Forward (ascendente): ";
         bt.ForEach([](auto& info){ cout << info.key << " "; });
         cout << "\n";
-
-        cout << "Backward (descendente): ";
-        bt.ReverseForEach([](auto& info){ cout << info.key << " "; });
-        cout << "\n";
     }
 }
 

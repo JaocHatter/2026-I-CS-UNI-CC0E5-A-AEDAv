@@ -19,17 +19,17 @@ public:
        using ObjectInfo = typename TreeType::ObjectInfo;
        using BTNode     = typename TreeType::BTNode;
 protected:
-       vector<pair<BTNode*, int>> m_Stack;
+       vector<pair<BTNode*, size_t>> buffer;
 public:
        btree_iterator_base() = default;
 
-       ObjectInfo &operator*()  { return m_Stack.back().first->m_Keys[m_Stack.back().second]; }
+       ObjectInfo &operator*()  { return buffer.back().first->m_Keys[buffer.back().second]; }
        ObjectInfo *operator->() { return &(**this); }
 
        friend bool operator==(const btree_iterator_base &a, const btree_iterator_base &b) {
-              if( a.m_Stack.empty() && b.m_Stack.empty() ) return true;
-              if( a.m_Stack.empty() || b.m_Stack.empty() ) return false;
-              return a.m_Stack.back() == b.m_Stack.back();
+              if( a.buffer.empty() && b.buffer.empty() ) return true;
+              if( a.buffer.empty() || b.buffer.empty() ) return false;
+              return a.buffer.back() == b.buffer.back();
        }
 };
 
@@ -43,8 +43,8 @@ class btree_iterator : public btree_iterator_base<TreeType>
        {
               while( p && p->m_KeyCount > 0 )
               {
-                     int i = IsForward ? 0 : p->m_KeyCount - 1;
-                     this->m_Stack.push_back({p, i});
+                     size_t i = IsForward ? 0 : p->m_KeyCount - 1;
+                     this->buffer.push_back({p, i});
                      p = IsForward ? p->m_SubPages[0] : p->m_SubPages[p->m_KeyCount];
               }
        }
@@ -58,14 +58,14 @@ public:
 
        btree_iterator &operator++()
        {
-              if( this->m_Stack.empty() )
+              if( this->buffer.empty() )
                      return *this;
 
-              BTNode *page = this->m_Stack.back().first;
-              int     i    = this->m_Stack.back().second;
+              BTNode *page = this->buffer.back().first;
+              size_t     i    = this->buffer.back().second;
 
               BTNode *child = IsForward ? page->m_SubPages[i+1] : page->m_SubPages[i];
-              this->m_Stack.back().second = IsForward ? i+1 : i-1;
+              this->buffer.back().second = IsForward ? i+1 : i-1;
 
               if( child )
               {
@@ -74,10 +74,10 @@ public:
               else
               {
                      // Desapila ancestros ya agotados en la dirección de recorrido
-                     while( !this->m_Stack.empty() &&
-                            (IsForward ? this->m_Stack.back().second >= this->m_Stack.back().first->m_KeyCount
-                                       : this->m_Stack.back().second <  0) )
-                            this->m_Stack.pop_back();
+                     while( !this->buffer.empty() &&
+                            (IsForward ? this->buffer.back().second >= this->buffer.back().first->m_KeyCount
+                                       : this->buffer.back().second <  0) )
+                            this->buffer.pop_back();
               }
               return *this;
        }
@@ -115,7 +115,7 @@ protected:
        mutable shared_mutex m_mtx;
 
 public:
-       BTree(int order = DEFAULT_BTREE_ORDER, bool unique = true);
+       BTree(size_t order = DEFAULT_BTREE_ORDER, bool unique = true);
        ~BTree();
        //int           Open (char * name, int mode);
        //int           Create (char * name, int mode);
@@ -164,15 +164,15 @@ public:
 
 protected:
        bool            m_Unique;  // Accept the elements only once ?
-       int             m_Order;
+       size_t             m_Order;
        BTNode          m_Root;
-       int             m_Height;   
+       size_t             m_Height;   
        long            m_NumKeys; // number of keys
 };
 
-const int MaxHeight = 5;
+const size_t MaxHeight = 5;
 template <typename Trait>
-BTree<Trait>::BTree(int order, bool unique)
+BTree<Trait>::BTree(size_t order, bool unique)
                                : m_Unique(unique),
                                  m_Order(order),
                                  m_Root(2 * order  + 1, unique),
