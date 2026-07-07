@@ -114,6 +114,11 @@ public:
 protected:
        mutable shared_mutex m_mtx;
 
+private:
+       bool            InsertImpl (const keyType key, const ObjIDType ObjID);
+       bool            RemoveImpl (const keyType key, const ObjIDType ObjID);
+       ObjIDType       SearchImpl (const keyType key);
+
 public:
        BTree(size_t order = DEFAULT_BTREE_ORDER, bool unique = true);
        ~BTree();
@@ -152,7 +157,7 @@ public:
               while (is >> ch && ch == '('){
                      is >> key >> ch;
                      is >> id >> ch;
-                     bt.Insert(key, id);
+                     bt.InsertImpl(key, id);
               }
               return is;
        }
@@ -188,7 +193,7 @@ BTree<Trait>::~BTree()
 }
 
 template <typename Trait>
-bool BTree<Trait>::Insert(const keyType key, const ObjIDType ObjID)
+bool BTree<Trait>::InsertImpl(const keyType key, const ObjIDType ObjID)
 {
        bt_ErrorCode error = m_Root.Insert(key, ObjID);
        if( error == bt_duplicate )
@@ -203,7 +208,14 @@ bool BTree<Trait>::Insert(const keyType key, const ObjIDType ObjID)
 }
 
 template <typename Trait>
-bool BTree<Trait>::Remove (const keyType key, const ObjIDType ObjID)
+bool BTree<Trait>::Insert(const keyType key, const ObjIDType ObjID)
+{      
+       unique_lock<shared_mutex> lock(m_mtx);
+       return InsertImpl(key, ObjID);
+}
+
+template <typename Trait>
+bool BTree<Trait>::RemoveImpl (const keyType key, const ObjIDType ObjID)
 {
        bt_ErrorCode error = m_Root.Remove(key, ObjID);
        if( error == bt_duplicate || error == bt_nofound )
@@ -215,11 +227,25 @@ bool BTree<Trait>::Remove (const keyType key, const ObjIDType ObjID)
 }
 
 template <typename Trait>
-typename Trait::ObjIDType BTree<Trait>::Search (const keyType key)
+bool BTree<Trait>::Remove (const keyType key, const ObjIDType ObjID)
+{
+       unique_lock<shared_mutex> lock(m_mtx);
+       return RemoveImpl(key, ObjID);
+}
+
+template <typename Trait>
+typename Trait::ObjIDType BTree<Trait>::SearchImpl (const keyType key)
 {
        ObjIDType ObjID = -1;
        m_Root.Search(key, ObjID);
        return ObjID;
+}
+
+template <typename Trait>
+typename Trait::ObjIDType BTree<Trait>::Search (const keyType key)
+{
+       shared_lock<shared_mutex> lock(m_mtx);
+       return SearchImpl(key);
 }
 
 // practicamente todo lo que hacia en BTreePage, el ForEach en BTreePage queda inutil

@@ -4,12 +4,17 @@
 #include <sstream>
 #include "BTree.h"
 #include "traits.h"
+#include <chrono>
+#include <thread>
+#include <random>
 #include "../types.h"
 
 void BTreeVolumeDemo() {
+    BTree<AscendingBTreeTrait<T3>> bt(64);
+    vector<T3> allKeys;
+    
     cout << "Manejo de Fechas en Gran Volumen" << endl;
-    {
-        BTree<AscendingBTreeTrait<T3>> bt(64);
+    {    
         T3 n = 0;
         clock_t t0 = clock();
 
@@ -18,6 +23,7 @@ void BTreeVolumeDemo() {
                 for(int day = 1; day <= 28; day++){
                     T3 key = (T3)(year * 10000L + month * 100L + day);
                     bt.Insert(key, key);
+                    allKeys.push_back(key);
                     n++;
                 }
             }

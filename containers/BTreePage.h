@@ -39,12 +39,10 @@ struct tagObjectInfo
 {
        keyType   key;
        ObjIDType ObjID;
-       long                    UseCounter;
        tagObjectInfo(const keyType     &_key, ObjIDType _ObjID)
-               : key(_key), ObjID(_ObjID), UseCounter(0) {}
+               : key(_key), ObjID(_ObjID) {}
        tagObjectInfo()                          {}
        operator keyType                         ()     { return key; }
-       long                    GetUseCounter() { return UseCounter;    }
 };
 
 
@@ -513,7 +511,6 @@ bool CBTreePage<Trait>::Search(const keyType &key, ObjIDType &ObjID)
        if( key == m_Keys[pos].key )
        {
                ObjID = m_Keys[pos].ObjID;
-               m_Keys[pos].UseCounter++;
                return true;
        }
        if( m_comp(key, m_Keys[pos].key) )
@@ -564,8 +561,13 @@ bt_ErrorCode CBTreePage<Trait>::Remove(const keyType &key, const ObjIDType ObjID
                        error = m_SubPages[++pos]->Remove(key, ObjID);
                }
        }
-       else if( pos == NumberOfKeys() ) // it is not here, go by the last branch
-               error = m_SubPages[pos]->Remove(key, ObjID);
+       else if( pos == NumberOfKeys() ){ // it is not here, go by the last branch
+                if( m_SubPages[pos] )
+                        error = m_SubPages[pos]->Remove(key, ObjID);
+                else
+                        return bt_nofound;
+       } 
+               
        else if( !m_comp(m_Keys[pos].key, key) ){ // = is because identical keys are inserted on left (see Insert)
                if( m_SubPages[pos] )
                        error = m_SubPages[pos]->Remove(key, ObjID);
