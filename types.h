@@ -11,6 +11,8 @@ using Type = int;
 // It must work for windows, linux, iOS, macOS, android, etc.
 
 using T1 = int;
+using T2 = char; // será usado para el BTreeDemo
+using T3 = long;
 
 using Ref = long;
 

@@ -214,6 +214,10 @@ bt_ErrorCode CBTreePage<Trait>::Insert(const keyType& key, const ObjIDType ObjID
        {
                // recursive insertion
                error = m_SubPages[pos]->Insert(key, ObjID);
+               if ( error == bt_duplicate ) {
+                       return bt_duplicate;
+               }
+
                if( error == bt_overflow )
                {
                        if( !Redistribute1(pos) )
