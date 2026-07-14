@@ -135,6 +135,7 @@ public:
     using edge_type = typename GraphTraits::Edge;
     using node_id_type = typename node_type::id_type;
     using edge_id_type = typename edge_type::id_type;
+    using weight_type = typename edge_type::weight_type;
 
     // Container types (can be customized via allocators later)
     using node_container = std::unordered_map<node_id_type, node_type>;
@@ -152,9 +153,7 @@ public:
 
     // Constructors
     CGraph() = default;
-    explicit CGraph(const node_container& nodes) : nodes_(nodes) {}
-    explicit CGraph(node_container&& nodes) : nodes_(std::move(nodes)) {}
-
+    
     // Rule of five (defaulted)
     ~CGraph() = default;
     
@@ -162,23 +161,31 @@ public:
     // los cinco = default dejaban de compilar
     CGraph(const CGraph& other) {
         std::shared_lock<std::shared_mutex> lock(other.m_mtx);
-        nodes_ = other.nodes_;  edges_ = other.edges_;  adjacency_ = other.adjacency_;
+        nodes_ = other.nodes_;  
+        edges_ = other.edges_;  
+        out_   = other.out_;
+        in_    = other.in_;
     }
 
     CGraph(CGraph&& other) {
         std::unique_lock<std::shared_mutex> lock(other.m_mtx);
         nodes_ = std::move(other.nodes_);
         edges_ = std::move(other.edges_);
-        adjacency_ = std::move(other.adjacency_);
-        other.nodes_.clear(); other.edges_.clear(); other.adjacency_.clear();
+        out_   = std::move(other.out_);
+        in_    = std::move(other.in_);
+        other.nodes_.clear(); other.edges_.clear();
+        other.out_.clear();   other.in_.clear();
     }
 
     CGraph& operator=(const CGraph& other) {
         if (this == &other) return *this;
-        std::unique_lock<std::shared_mutex> lhs(m_mtx,       std::defer_lock);
-        std::shared_lock<std::shared_mutex> rhs(other.m_mtx, std::defer_lock);
-        std::lock(lhs, rhs);                // los toma en orden consistente => sin deadlock
-        nodes_ = other.nodes_;  edges_ = other.edges_;  adjacency_ = other.adjacency_;
+        std::unique_lock<std::shared_mutex> lhs(m_mtx,       std::defer_lock);  // destino: escribo
+        std::shared_lock<std::shared_mutex> rhs(other.m_mtx, std::defer_lock);  // origen:  leo
+        std::lock(lhs, rhs);             // los toma en orden seguro => sin deadlock
+        nodes_ = other.nodes_;
+        edges_ = other.edges_;
+        out_   = other.out_;
+        in_    = other.in_;
         return *this;
     }
 
@@ -189,8 +196,10 @@ public:
         std::lock(lhs, rhs);
         nodes_ = std::move(other.nodes_);
         edges_ = std::move(other.edges_);
-        adjacency_ = std::move(other.adjacency_);
-        other.nodes_.clear(); other.edges_.clear(); other.adjacency_.clear();
+        out_   = std::move(other.out_);
+        in_    = std::move(other.in_);
+        other.nodes_.clear(); other.edges_.clear();
+        other.out_.clear();   other.in_.clear();
         return *this;
     }
 
@@ -202,19 +211,19 @@ public:
         return it->second;
     }
 
-    bool remove_node(node_id_type id) noexcept {
+    bool remove_node(node_id_type id) {
         // Also need to remove edges incident to this node.
         // For skeleton, just remove from nodes, leaving edges dangling.
         // Better to remove edges as well.
         return nodes_.erase(id) > 0;
     }
 
-    node_type* find_node(node_id_type id) noexcept {
+    node_type* find_node(node_id_type id)  {
         auto it = nodes_.find(id);
         return it != nodes_.end() ? &it->second : nullptr;
     }
 
-    const node_type* find_node(node_id_type id) const noexcept {
+    const node_type* find_node(node_id_type id) const  {
         auto it = nodes_.find(id);
         return it != nodes_.end() ? &it->second : nullptr;
     }
@@ -227,21 +236,22 @@ public:
         return it->second;
     }
 
-    bool remove_edge(edge_id_type id) noexcept {
+    bool remove_edge(edge_id_type id)  {
         return edges_.erase(id) > 0;
     }
 
-    edge_type* find_edge(edge_id_type id) noexcept {
+    edge_type* find_edge(edge_id_type id)  {
         auto it = edges_.find(id);
         return it != edges_.end() ? &it->second : nullptr;
     }
 
-    const edge_type* find_edge(edge_id_type id) const noexcept {
+    const edge_type* find_edge(edge_id_type id) const  {
         auto it = edges_.find(id);
         return it != edges_.end() ? &it->second : nullptr;
     }
 
     // Iterators
+    // conservan el nonexcept porque no bloquean, no hay necesidad de quitarlo
     node_iterator nodes_begin() noexcept { return nodes_.begin(); }
     node_iterator nodes_end() noexcept { return nodes_.end(); }
     const_node_iterator nodes_cbegin() const noexcept { return nodes_.cbegin(); }
@@ -253,15 +263,17 @@ public:
     const_edge_iterator edges_cend() const noexcept { return edges_.cend(); }
 
     // Capacity
-    size_t node_count() const noexcept { return nodes_.size(); }
-    size_t edge_count() const noexcept { return edges_.size(); }
-    bool empty() const noexcept { return nodes_.empty(); }
+    size_t node_count() const  { return nodes_.size(); }
+    size_t edge_count() const  { return edges_.size(); }
+    bool empty() const  { return nodes_.empty(); }
 
     // Clear
-    void clear() noexcept {
+    void clear()  {
         nodes_.clear();
         edges_.clear();
     }
+
+    std::shared_mutex& mutex() const noexcept { return m_mtx; }
 
 private:
     node_container nodes_;
