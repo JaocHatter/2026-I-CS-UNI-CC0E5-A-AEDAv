@@ -202,12 +202,44 @@ public:
         other.out_.clear();   other.in_.clear();
         return *this;
     }
+private:
+    //Funciones auxiliares para add_ , remove
+    const edge_type& edge_at_(edge_id_type eid) const { return edges_.at(eid); }
+
+    static const std::vector<edge_id_type>& lookup_(const adjacency_container& m,
+                                                    node_id_type id) {
+        static const std::vector<edge_id_type> kEmpty;
+        auto it = m.find(id);
+        return (it == m.end()) ? kEmpty : it->second;
+    }
+
+    const std::vector<edge_id_type>& out_edges_(node_id_type id) const { return lookup_(out_, id); }
+    const std::vector<edge_id_type>& in_edges_ (node_id_type id) const { return lookup_(in_,  id); }
+
+    // Quita eid de out_[source] y de in_[target]. Mantiene la invariante 1.
+    void detach_edge_(edge_id_type eid, const edge_type& e) {
+        auto strip = [eid](std::vector<edge_id_type>& v) {
+            v.erase(std::remove(v.begin(), v.end(), eid), v.end());
+        };
+        auto itO = out_.find(e.source());
+        if (itO != out_.end()) strip(itO->second);
+        auto itI = in_.find(e.target());
+        if (itI != in_.end()) strip(itI->second);
+        // Self-loop u->u: se quita de out_[u] Y de in_[u]
+    }
+public:
 
     // Node operations
     node_type& add_node(node_id_type id, typename node_type::value_type data = {}) {
+        std::unique_lock<std::shared_mutex> lock(m_mtx);
         // Check if node already exists? Could throw or return existing.
         auto [it, inserted] = nodes_.try_emplace(id, node_type(id, std::move(data)));
         // if not inserted, handle error (e.g., throw or return existing)
+        if (!inserted)
+            throw std::invalid_argument("add_node: el id de nodo ya existe");
+        out_.try_emplace(id);
+        in_.try_emplace(id);
+
         return it->second;
     }
 
@@ -215,6 +247,26 @@ public:
         // Also need to remove edges incident to this node.
         // For skeleton, just remove from nodes, leaving edges dangling.
         // Better to remove edges as well.
+        std::unique_lock<std::shared_mutex> lock(m_mtx);
+
+        // primero verifico que exista el nodo que voy a eliminar
+        if (!nodes_.contains(id))
+            return false;
+        
+        std::vector<edge_id_type> incidentes = out_edges_(id);
+        const auto& entrantes = in_edges_(id);
+        incidentes.insert(incidentes.end(), entrantes.begin(), entrantes.end());
+
+        // eliminando las aristas correspondientes
+        for (edge_id_type eid : incidentes) {
+            auto itE = edges_.find(eid);
+            if (itE != edges_.end()) {              // un self-loop aparece DOS veces en
+                detach_edge_(eid, itE->second);     // 'incidentes' (out_ e in_): la segunda
+                edges_.erase(itE);                  // vez ya no está en edges_ y se salta
+            }
+        }
+        out_.erase(id);
+        in_.erase(id);
         return nodes_.erase(id) > 0;
     }
 
@@ -231,13 +283,34 @@ public:
     // Edge operations
     edge_type& add_edge(edge_id_type id, node_id_type src, node_id_type tgt,
                         typename edge_type::weight_type weight = {}) {
+        std::unique_lock<std::shared_mutex> lock(m_mtx);
+
         // Check if nodes exist? Could throw if not.
+        if(!nodes_.contains(src) || !nodes_.contains(tgt)){
+            throw std::out_of_range("add_edge: nodo inexistente");
+        }
         auto [it, inserted] = edges_.try_emplace(id, edge_type(id, src, tgt, weight));
+        
+        if (!inserted)
+            throw std::invalid_argument("add_edge: el id de arista ya existe");
+
+        out_[src].push_back(id);
+        in_[tgt].push_back(id);
+
         return it->second;
     }
 
     bool remove_edge(edge_id_type id)  {
-        return edges_.erase(id) > 0;
+        std::unique_lock<std::shared_mutex> lock(m_mtx);
+        
+        auto it = edges_.find(id);
+        if (it == edges_.end())
+            return false;
+        // primero desengancho de out_/in_
+        detach_edge_(id, it->second);      
+        // y recién ahí borra la arista
+        edges_.erase(it);                  
+        return true;
     }
 
     edge_type* find_edge(edge_id_type id)  {

@@ -14,4 +14,7 @@ using T1 = int;
 
 using Ref = long;
 
+using DefaultNodeValueType = int;
+using DefaultEdgeWeightType = long;
+
 #endif // __TYPES_H__
