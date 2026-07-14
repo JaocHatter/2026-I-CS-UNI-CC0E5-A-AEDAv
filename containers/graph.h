@@ -5,15 +5,12 @@
 #include <vector>
 #include <unordered_map>
 #include <cstddef>
+#include <algorithm>
+#include <shared_mutex>
+#include <mutex>
+#include "../types.h"
 
 namespace graph {
-
-// Forward declarations
-template<typename NodeTraits>
-class CNode;
-
-template<typename EdgeTraits>
-class CEdge;
 
 // Concepts for NodeTraits and EdgeTraits
 template<typename T>
@@ -36,20 +33,29 @@ template<typename T>
 concept GraphTraitsConcept = requires {
     typename T::Node;                      // Must be a CNode<...> instantiation
     typename T::Edge;                      // Must be a CEdge<...> instantiation
-    // Node and Edge should have appropriate traits? Could be checked later.
+    // Con esto aseguramos que el tipo de Id de Nodo que usan las aristas es el mismo
+    // que el de los nodos, así el trait esta mejor definido
+    requires std::same_as<typename T::Edge::node_id_type, typename T::Node::id_type>;
 };
+
+// Forward declarations
+template<NodeTraitsConcept NodeTraits>
+class CNode;
+
+template<EdgeTraitsConcept EdgeTraits>
+class CEdge;
 
 // Default node traits
 struct DefaultNodeTraits {
     using id_type = std::size_t;
-    using value_type = int;  // dummy
+    using value_type = DefaultNodeValueType;
 };
 
 // Default edge traits
 struct DefaultEdgeTraits {
     using id_type = std::size_t;
     using node_id_type = std::size_t;
-    using weight_type = double;
+    using weight_type = DefaultEdgeWeightType;
 };
 
 // CNode template
@@ -75,8 +81,9 @@ public:
     // Possibly other methods...
 
 private:
-    id_type id_;
-    value_type data_;
+    // añadimos los corchetes porque data_ no se inicializa cuando usamos explicit
+    id_type id_{};
+    value_type data_{};
 };
 
 // CEdge template
@@ -119,6 +126,8 @@ struct DefaultGraphTraits {
 // CGraph template
 template<GraphTraitsConcept GraphTraits = DefaultGraphTraits>
 class CGraph {
+private:
+    mutable std::shared_mutex m_mtx;
 public:
     // Exposed types
     using graph_traits = GraphTraits;
@@ -221,6 +230,10 @@ public:
 private:
     node_container nodes_;
     edge_container edges_;
+    // contenedores de adjacencia: Estos ayudan a conocer los nodos de cada arista
+    // ya sean entrantes -> salientes
+    adjacency_container out_;
+    adjacency_container in_;
 };
 
 } // namespace graph
