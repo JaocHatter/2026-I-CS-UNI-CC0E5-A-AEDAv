@@ -140,6 +140,10 @@ public:
     using node_container = std::unordered_map<node_id_type, node_type>;
     using edge_container = std::unordered_map<edge_id_type, edge_type>;
 
+    // new: Adjacency container, estos ayudan a conocer los nodos de cada arista
+    // ya sean entrantes -> salientes
+    using adjacency_container = std::unordered_map<node_id_type, std::vector<edge_id_type>>;
+
     // Iterators
     using node_iterator = typename node_container::iterator;
     using const_node_iterator = typename node_container::const_iterator;
@@ -153,10 +157,42 @@ public:
 
     // Rule of five (defaulted)
     ~CGraph() = default;
-    CGraph(const CGraph&) = default;
-    CGraph(CGraph&&) = default;
-    CGraph& operator=(const CGraph&) = default;
-    CGraph& operator=(CGraph&&) = default;
+    
+    // shared_mutex no es copiable ni movible. En cuanto añadas el miembro, 
+    // los cinco = default dejaban de compilar
+    CGraph(const CGraph& other) {
+        std::shared_lock<std::shared_mutex> lock(other.m_mtx);
+        nodes_ = other.nodes_;  edges_ = other.edges_;  adjacency_ = other.adjacency_;
+    }
+
+    CGraph(CGraph&& other) {
+        std::unique_lock<std::shared_mutex> lock(other.m_mtx);
+        nodes_ = std::move(other.nodes_);
+        edges_ = std::move(other.edges_);
+        adjacency_ = std::move(other.adjacency_);
+        other.nodes_.clear(); other.edges_.clear(); other.adjacency_.clear();
+    }
+
+    CGraph& operator=(const CGraph& other) {
+        if (this == &other) return *this;
+        std::unique_lock<std::shared_mutex> lhs(m_mtx,       std::defer_lock);
+        std::shared_lock<std::shared_mutex> rhs(other.m_mtx, std::defer_lock);
+        std::lock(lhs, rhs);                // los toma en orden consistente => sin deadlock
+        nodes_ = other.nodes_;  edges_ = other.edges_;  adjacency_ = other.adjacency_;
+        return *this;
+    }
+
+    CGraph& operator=(CGraph&& other) {
+        if (this == &other) return *this;
+        std::unique_lock<std::shared_mutex> lhs(m_mtx,       std::defer_lock);
+        std::unique_lock<std::shared_mutex> rhs(other.m_mtx, std::defer_lock);
+        std::lock(lhs, rhs);
+        nodes_ = std::move(other.nodes_);
+        edges_ = std::move(other.edges_);
+        adjacency_ = std::move(other.adjacency_);
+        other.nodes_.clear(); other.edges_.clear(); other.adjacency_.clear();
+        return *this;
+    }
 
     // Node operations
     node_type& add_node(node_id_type id, typename node_type::value_type data = {}) {
@@ -230,8 +266,6 @@ public:
 private:
     node_container nodes_;
     edge_container edges_;
-    // contenedores de adjacencia: Estos ayudan a conocer los nodos de cada arista
-    // ya sean entrantes -> salientes
     adjacency_container out_;
     adjacency_container in_;
 };
