@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <shared_mutex>
 #include <mutex>
+#include <stdexcept>
+#include <iostream>
 #include "../types.h"
 
 namespace graph {
@@ -271,11 +273,13 @@ public:
     }
 
     node_type* find_node(node_id_type id)  {
+        std::shared_lock<std::shared_mutex> lock(m_mtx);
         auto it = nodes_.find(id);
         return it != nodes_.end() ? &it->second : nullptr;
     }
 
     const node_type* find_node(node_id_type id) const  {
+        std::shared_lock<std::shared_mutex> lock(m_mtx);
         auto it = nodes_.find(id);
         return it != nodes_.end() ? &it->second : nullptr;
     }
@@ -314,11 +318,13 @@ public:
     }
 
     edge_type* find_edge(edge_id_type id)  {
+        std::shared_lock<std::shared_mutex> lock(m_mtx);
         auto it = edges_.find(id);
         return it != edges_.end() ? &it->second : nullptr;
     }
 
     const edge_type* find_edge(edge_id_type id) const  {
+        std::shared_lock<std::shared_mutex> lock(m_mtx);
         auto it = edges_.find(id);
         return it != edges_.end() ? &it->second : nullptr;
     }
@@ -336,14 +342,17 @@ public:
     const_edge_iterator edges_cend() const noexcept { return edges_.cend(); }
 
     // Capacity
-    size_t node_count() const  { return nodes_.size(); }
-    size_t edge_count() const  { return edges_.size(); }
-    bool empty() const  { return nodes_.empty(); }
+    size_t node_count() const  { std::shared_lock<std::shared_mutex> lock(m_mtx); return nodes_.size(); }
+    size_t edge_count() const  { std::shared_lock<std::shared_mutex> lock(m_mtx); return edges_.size(); }
+    bool empty() const  { std::shared_lock<std::shared_mutex> lock(m_mtx); return nodes_.empty(); }
 
     // Clear
     void clear()  {
+        std::unique_lock<std::shared_mutex> lock(m_mtx);
         nodes_.clear();
         edges_.clear();
+        out_.clear();
+        in_.clear();
     }
 
     std::shared_mutex& mutex() const noexcept { return m_mtx; }
