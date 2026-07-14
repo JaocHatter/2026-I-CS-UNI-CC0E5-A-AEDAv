@@ -80,10 +80,7 @@ public:
     // Setters
     void set_data(const value_type& new_data) { data_ = new_data; }
 
-    // Possibly other methods...
-
 private:
-    // añadimos los corchetes porque data_ no se inicializa cuando usamos explicit
     id_type id_{};
     value_type data_{};
 };
