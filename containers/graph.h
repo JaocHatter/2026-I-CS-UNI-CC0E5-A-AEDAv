@@ -140,8 +140,7 @@ public:
     using node_container = std::unordered_map<node_id_type, node_type>;
     using edge_container = std::unordered_map<edge_id_type, edge_type>;
 
-    // new: Adjacency container, estos ayudan a conocer los nodos de cada arista
-    // ya sean entrantes -> salientes
+    // new: Adjacency container, estos ayudan a conocer las aristas de cada nodo
     using adjacency_container = std::unordered_map<node_id_type, std::vector<edge_id_type>>;
 
     // Iterators
@@ -353,6 +352,82 @@ public:
     }
 
     std::shared_mutex& mutex() const noexcept { return m_mtx; }
+
+    // Formato:  {V:[(id,data),...];E:[(id,src,tgt,peso),...]}
+    // Toma shared_lock: solo lee. Recorre nodes_/edges_ directamente
+    // Ordena por id porque unordered_map no garantiza el orden de iteracion: sin esto el
+    // mismo grafo se imprimiria distinto en cada ejecucion
+    friend std::ostream& operator<<(std::ostream& os, const CGraph& g) {
+        std::shared_lock<std::shared_mutex> lock(g.m_mtx);
+
+        std::vector<node_id_type> nids;
+        for(const auto& [id, n] : g.nodes_) nids.push_back(id);
+        std::sort(nids.begin(), nids.end());
+
+        os << "{V:[";
+        for(size_t i = 0; i < nids.size(); i++) {
+            if(i) os << ",";
+            os << "(" << nids[i] << "," << g.nodes_.at(nids[i]).data() << ")";
+        }
+
+        std::vector<edge_id_type> eids;
+        for(const auto& [id, e] : g.edges_) eids.push_back(id);
+        std::sort(eids.begin(), eids.end());
+
+        os << "];E:[";
+        for(size_t i = 0; i < eids.size(); i++) {
+            const auto& e = g.edges_.at(eids[i]);
+            if(i) os << ",";
+            os << "(" << e.id() << "," << e.source() << "," << e.target() << "," << e.weight() << ")";
+        }
+        return os << "]}";
+    }
+
+    // NO toma lock: clear() y add_node()/add_edge() ya bloquean cada uno por su cuenta
+    // Bloquear aqui seria un deadlock, porque shared_mutex no es recursivo
+    // Los nodos van antes que las aristas: add_edge exige que los extremos ya existan
+    friend std::istream& operator>>(std::istream& is, CGraph& g) {
+        auto esperar = [&is](char c) {
+            char ch;
+            if(!(is >> ch) || ch != c) { is.setstate(std::ios_base::failbit); return false; }
+            return true;
+        };
+        if(!esperar('{') || !esperar('V') || !esperar(':') || !esperar('[')) return is;
+
+        g.clear();
+
+        char ch;
+        while(is >> ch && ch != ']') {                     // nodos: (id,data)
+            if(ch == ',') continue;
+            if(ch != '(') { is.setstate(std::ios_base::failbit); return is; }
+
+            node_id_type id;
+            typename node_type::value_type data;
+            char coma, cierra;
+            if(!(is >> id >> coma >> data >> cierra) || coma != ',' || cierra != ')') {
+                is.setstate(std::ios_base::failbit); return is;
+            }
+            g.add_node(id, data);
+        }
+        if(!esperar(';') || !esperar('E') || !esperar(':') || !esperar('[')) return is;
+
+        while(is >> ch && ch != ']') {                     // aristas: (id,src,tgt,peso)
+            if(ch == ',') continue;
+            if(ch != '(') { is.setstate(std::ios_base::failbit); return is; }
+
+            edge_id_type id;
+            node_id_type src, tgt;
+            weight_type  peso;
+            char c1, c2, c3, cierra;
+            if(!(is >> id >> c1 >> src >> c2 >> tgt >> c3 >> peso >> cierra)
+               || c1 != ',' || c2 != ',' || c3 != ',' || cierra != ')') {
+                is.setstate(std::ios_base::failbit); return is;
+            }
+            g.add_edge(id, src, tgt, peso);
+        }
+        esperar('}');
+        return is;
+    }
 
 private:
     node_container nodes_;
