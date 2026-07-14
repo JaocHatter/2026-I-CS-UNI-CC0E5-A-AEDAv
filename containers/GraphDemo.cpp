@@ -1,7 +1,9 @@
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <algorithm>
 #include <thread>
+#include "GraphDemo.h"
 #include "graph.h"
 #include "../types.h"
 
@@ -120,6 +122,29 @@ void GraphDemo()
          << g.edge_count() << " aristas\n";
 
 
+    cout << "\n=== Operadores << y >> ===" << endl;
+    cout << "cout << g  -> " << g << "\n";
+
+    // Lo guardo en un string y lo vuelvo a leer en otro grafo: debe quedar igual
+    stringstream ss;
+    ss << g;
+
+    DG copia;
+    ss >> copia;
+    cout << "tras >>    -> " << copia << "\n";
+    cout << (copia.node_count() == g.node_count() && copia.edge_count() == g.edge_count()
+             ? "OK: el grafo se reconstruyo igual\n" : "FALLO\n");
+
+    // Si el texto pide una arista hacia un nodo que no existe, add_edge lanza
+    DG malo;
+    stringstream texto("{V:[(1,10)];E:[(9,1,77,5)]}");   // el nodo 77 no esta
+    try {
+        texto >> malo;
+    } catch(const out_of_range& ex) {
+        cout << "texto invalido -> " << ex.what() << "\n";
+    }
+
+
     cout << "\n=== Limpiar ===" << endl;
 
     g.clear();
@@ -147,8 +172,3 @@ void GraphDemo()
 
     cout << "\n=== FIN ===" << endl;
 }
-
-
-#ifdef GRAPH_DEMO_MAIN
-int main() { GraphDemo(); return 0; }
-#endif
