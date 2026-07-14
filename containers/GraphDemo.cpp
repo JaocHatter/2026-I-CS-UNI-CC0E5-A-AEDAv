@@ -3,7 +3,6 @@
 #include <vector>
 #include <algorithm>
 #include <thread>
-#include "GraphDemo.h"
 #include "graph.h"
 #include "../types.h"
 
@@ -157,8 +156,8 @@ void GraphDemo()
     // 5 hilos insertando a la vez, cada uno con su rango de ids.
     // Si el shared_mutex no funcionara, saldrian menos de 5000.
     DG h;
-    auto insertar = [&h](int hilo) {
-        for(int i = 0; i < 1000; i++)
+    auto insertar = [&h](T1 hilo) {
+        for(T1 i = 0; i < 1000; i++)
             h.add_node(hilo * 1000 + i, i);
     };
 
